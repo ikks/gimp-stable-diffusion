@@ -1,5 +1,10 @@
 # History
 ## GIMP Plugin
+### 1.3.7
+Bugfixes
+- Added support to choose model to generate new imaage, image to aimage, and inpainting.
+
+## GIMP Plugin
 ### 1.3.5
 Bugfixes
 - In some cases generation failed due to invalid prompt strength values
