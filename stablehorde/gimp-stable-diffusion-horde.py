@@ -9,6 +9,8 @@ import base64  # Import the base64 library for encoding/decoding data in base64 
 import json  # Import the json library for working with JSON data
 import ssl  # Import the ssl library for SSL certificate handling
 import sched  # Import the sched library for scheduling tasks
+import random # Import RNG
+import datetime
 import time  # Import the time library for working with time-related functions
 import math  # Import the math library for mathematical operations
 import gimp  # Import the gimp library
@@ -16,7 +18,7 @@ import re  # Import the re library for regular expressions
 from gimpfu import *  # Import necessary functions and classes from the gimpfu module
 
 # Define constants and configuration settings
-VERSION = 137
+VERSION = 135
 INIT_FILE = "init.png"
 GENERATED_FILE = "generated.png"
 API_ROOT = "https://stablehorde.net/api/v2/"
@@ -56,7 +58,7 @@ def checkUpdate():
     if updateChecked is False:
         try:
             # Check for updates by fetching version information from a URL
-            url = "https://github.com/binarymass/gimp-stable-diffusion/tree/main/stablehorde/version.json"
+            url = "https://raw.githubusercontent.com/blueturtleai/gimp-stable-diffusion/main/stablehorde/version.json"
             response = urllib2.urlopen(url)
             data = response.read()
             data = json.loads(data)
@@ -143,10 +145,12 @@ def checkStatus():
         return
 
 # Main function for generating images
-def generate(image, drawable, mode, models, initStrength, promptStrength, steps, seed, nsfw, prompt, apikey, maxWaitMin):
+def generate(image, drawable, mode, models, initStrength, promptStrength, steps, seed, nsfw, censor_nsfw, prompt, apikey, maxWaitMin):
      
     mod = [models]
     
+    
+
     
     # Validate image size
     if image.width < 384 or image.width > 1024 or image.height < 384 or image.height > 1024:
@@ -177,7 +181,7 @@ def generate(image, drawable, mode, models, initStrength, promptStrength, steps,
             "params": params,
             "prompt": prompt,
             "nsfw": nsfw,
-            "censor_nsfw": False,
+            "censor_nsfw": censor_nsfw,
             "models": mod,
             "r2": True
             
@@ -211,7 +215,11 @@ def generate(image, drawable, mode, models, initStrength, promptStrength, steps,
             data.update({"source_image": init})
             data.update({"source_processing": "inpainting"})
             data.update({"models": mod})
-
+        
+        
+        
+        
+        
         data = json.dumps(data)
 
         apikey = "0000000000" if not apikey else apikey
@@ -279,8 +287,9 @@ register(
         (PF_SLIDER, "initStrength", "Init Strength", 0.3, (0, 1, 0.1)),
         (PF_SLIDER, "promptStrength", "Prompt Strength", 8, (0, 20, 1)),
         (PF_SLIDER, "steps", "Steps", 25, (10, 150, 1)),
-        (PF_STRING, "seed", "Seed (optional)", ""),
+        (PF_STRING, "seed", "Seed (optional)", "-1"),
         (PF_TOGGLE, "nsfw", "NSFW", False),
+        (PF_TOGGLE, "censor_snfw", "Censor SNFW", TRUE),
         (PF_STRING, "prompt", "Prompt", ""),
         (PF_STRING, "apiKey", "API key (optional)", ""),
         (PF_SLIDER, "maxWaitMin", "Max Wait (minutes)", 10, (1, 10, 1))
