@@ -56,7 +56,7 @@ def checkUpdate():
     if updateChecked is False:
         try:
             # Check for updates by fetching version information from a URL
-            url = "https://raw.githubusercontent.com/binarymass/gimp-stable-diffusion/blob/main/stablehorde/version.json"
+            url = "https://raw.githubusercontent.com/binarymass/gimp-stable-diffusion/stablehorde/version.json"
             response = urllib2.urlopen(url)
             data = response.read()
             data = json.loads(data)
