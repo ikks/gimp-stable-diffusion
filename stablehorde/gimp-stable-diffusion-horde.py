@@ -289,7 +289,7 @@ register(
         (PF_SLIDER, "steps", "Steps", 25, (10, 150, 1)),
         (PF_STRING, "seed", "Seed (optional)", "-1"),
         (PF_TOGGLE, "nsfw", "NSFW", False),
-        (PF_TOGGLE, "censor_snfw", "Censor SNFW", TRUE),
+        (PF_TOGGLE, "censor_snfw", "Censor NSFW", TRUE),
         (PF_STRING, "prompt", "Prompt", ""),
         (PF_STRING, "apiKey", "API key (optional)", ""),
         (PF_SLIDER, "maxWaitMin", "Max Wait (minutes)", 10, (1, 10, 1))
