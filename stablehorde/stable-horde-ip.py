@@ -206,7 +206,7 @@ def generate(image, drawable, selector, totalGens, promptStrength, steps, seed, 
 
         data = json.dumps(data)
 
-        apikey = "B_u2Qs_5oUe7OXpNYrKKYQ" if not apikey else apikey
+        apikey = "0000000000" if not apikey else apikey
 
         headers = {"Content-Type": "application/json", "Accept": "application/json", "apikey": apikey}
         url = API_ROOT + "generate/async"
