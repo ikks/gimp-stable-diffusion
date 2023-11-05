@@ -270,7 +270,7 @@ def generate(image, drawable, mode, models, initStrength, promptStrength, steps,
 # Register the GIMP plugin with the specified parameters
 register(
     "stable-diffusions-horde",
-    "stable diffuesion horde Gimp Plugin",
+    "Stable Diffusion Horde GIMP Plugin",
     "stable-horde",
     "Unkn0wnable",
     "Unkn0wnable",
