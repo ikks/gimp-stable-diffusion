@@ -7,7 +7,7 @@ Please check HISTORY.md for the latest changes.
 ## Installation
 ### Download files
 
-To download the files of this repository click on "Code" and select "Download ZIP". In the ZIP you will find the fils "stable-horde-i2i.py", "stable-horde-ip.py", "stable-horde-t2i.py" and "stable-horde-upscaler.py" in the subfolder "stablehorde". This is the code for the GIMP plugin. You don't need the other files in the ZIP.
+To download the files of this repository click on "Code" and select "Download ZIP". In the ZIP you will find the fils "stable-horde-i2i.py", "stable-horde-ip.py", "stable-horde-t2i.py" ,"stable-horde-upscaler.py" and api.key in the subfolder "stablehorde". This is the code for the GIMP plugin. Add your API key to the file "api.key". If you do not have an api key, you can get one for free @ https://stablehorde.net/register .
 
 ### GIMP
 
