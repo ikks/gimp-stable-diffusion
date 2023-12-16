@@ -42,6 +42,8 @@ s = sched.scheduler(time.time, time.sleep)
 checkCounter = 0
 id = None
 
+FileNotFoundError = ""
+
 #Function Get Image Data, Encode and Send
 def getImageData(image, drawable):
     # Save the image as a PNG file
@@ -49,6 +51,21 @@ def getImageData(image, drawable):
     initImage = open(initFile, "rb")
     encoded = base64.b64encode(initImage.read())
     return encoded
+
+def load_api_key():
+    # Default API key value
+    default_api_key = "0000000000"
+
+    try:
+        # Try to open and read the API key from the file
+        with open(os.path.join(os.getcwd(), 'api.key')) as file:
+            api_key = file.read().strip()  # Strip to remove any leading/trailing whitespace
+        # Use the default key if the file is empty or contains only whitespace
+        return api_key
+    except FileNotFoundError:
+        # If the file does not exist, use the default API key
+        return default_api_key
+
 
 # Function to check for updates
 def checkUpdate():
@@ -143,7 +160,7 @@ def checkStatus():
         return
 
 # Main function for generating images
-def generate(image, drawable, selector, totalGens, initStrength, promptStrength, steps, seed, nsfw, censor_nsfw, prompt, apikey, maxWaitMin):
+def generate(image, drawable, selector, totalGens, initStrength, promptStrength, steps, seed, nsfw, censor_nsfw, prompt, maxWaitMin):
      
     
      
@@ -152,8 +169,8 @@ def generate(image, drawable, selector, totalGens, initStrength, promptStrength,
     models = horde[selector]
      
 	# Validate image size
-    if image.width < 384 or image.width > 1024 or image.height < 384 or image.height > 1024:
-        raise Exception("Invalid image size. Image needs to be between 384x384 and 1024x1024.")
+    if image.width < 64 or image.width > 3072 or image.height < 64 or image.height > 3072:
+        raise Exception("Invalid image size. Image needs to be between 64x64 and 3072x3072.")
 
     # Validate prompt input
     if prompt == "":
@@ -213,9 +230,9 @@ def generate(image, drawable, selector, totalGens, initStrength, promptStrength,
         
         data = json.dumps(data)
 
-        apikey = "0000000000" if not apikey else apikey
+        #apikey = load_api_key() if not apikey else apikey
 
-        headers = {"Content-Type": "application/json", "Accept": "application/json", "apikey": apikey}
+        headers = {"Content-Type": "application/json", "Accept": "application/json", "apikey": load_api_key()}
         url = API_ROOT + "generate/async"
 
         request = urllib2.Request(url=url, data=data, headers=headers)
@@ -280,7 +297,7 @@ register(
         (PF_TOGGLE, "nsfw", "NSFW", False),
         (PF_TOGGLE, "censor_snfw", "Censor NSFW", False),
         (PF_STRING, "prompt", "Prompt", ""),
-        (PF_STRING, "apiKey", "API key (optional)", ""),
+        #(PF_STRING, "apiKey", "API key (optional)", ""),
         (PF_SLIDER, "maxWaitMin", "Max Wait (minutes)", 10, (1, 10, 1))
     ],
     [],

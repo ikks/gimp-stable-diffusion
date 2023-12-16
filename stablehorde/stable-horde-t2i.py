@@ -11,6 +11,7 @@ import ssl  # Import the ssl library for SSL certificate handling
 import sched  # Import the sched library for scheduling tasks
 import random # Import RNG
 import datetime
+import string
 import time  # Import the time library for working with time-related functions
 import math  # Import the math library for mathematical operations
 import gimp  # Import the gimp library
@@ -20,13 +21,14 @@ from gimpfu import *  # Import necessary functions and classes from the gimpfu m
 # Define constants and configuration settings
 VERSION = 135
 INIT_FILE = "init.png"
-GENERATED_FILE = "generated.png"
+GENERATED_FILE = "gen_0_GIMP.png"
 API_ROOT = "https://stablehorde.net/api/v2/"
 
 CHECK_WAIT = 5
 checkMax = None
 hordeSelector = ""
 inprompt = ""
+
 horde = ["3DKX", "526Mix-Animated", "Abyss OrangeMix", "AbyssOrangeMix-AfterDark", "ACertainThing", "AIO Pixel Art", "Analog Diffusion", "Analog Madness", "Anime Pencil Diffusion", "Anygen", "AnyLoRA", "Anything Diffusion", "Anything Diffusion Inpainting", "Anything v3", "Anything v5", "App Icon Diffusion", "Arcane Diffusion", "Archer Diffusion", "Art Of Mtg", "Asim Simpsons", "A to Zovya RPG", "Aurora", "A-Zovya RPG Inpainting", "Babes", "Balloon Art", "BB95 Furry Mix", "Borderlands", "BPModel", "BRA", "BubblyDubbly", "BweshMix", "CamelliaMix 2.5D", "Cetus-Mix", "Char", "CharHelper", "Cheese Daddys Landscape Mix", "ChilloutMix", "ChromaV5", "Classic Animation Diffusion", "Clazy", "Colorful", "Coloring Book", "Comic-Diffusion", "Concept Sheet", "Counterfeit", "Cyberpunk Anime Diffusion", "CyberRealistic", "CyriousMix", "Dan Mumford Style", "Darkest Diffusion", "Dark Sushi Mix", "Dark Victorian Diffusion", "Deliberate", "Deliberate 3.0", "Deliberate Inpainting", "DGSpitzer Art Diffusion", "Disco Elysium", "Disney Pixar Cartoon Type A", "DnD Item", "DnD Map Generator", "Double Exposure Diffusion", "Dreamlike Diffusion", "Dreamlike Photoreal", "DreamLikeSamKuvshinov", "Dreamshaper", "DreamShaper Inpainting", "DucHaiten", "DucHaiten Classic Anime", "Dungeons and Diffusion", "Dungeons n Waifus", "Edge Of Realism", "Eimis Anime Diffusion", "Elden Ring Diffusion", "Elldreth's Lucid Mix", "Elldreths Retro Mix", "Elysium Anime", "Epic Diffusion", "Epic Diffusion Inpainting", "Eternos", "Ether Real Mix", "Experience", "ExpMix Line", "FaeTastic", "Fantasy Card Diffusion", "FKing SciFi", "Fluffusion", "Funko Diffusion", "Furry Epoch", "Future Diffusion", "Galena Redux", "Ghibli Diffusion", "GhostMix", "GorynichMix", "Grapefruit Hentai", "Graphic-Art", "GTA5 Artwork Diffusion", "GuFeng", "GuoFeng", "Guohua Diffusion", "HASDX", "Hassaku", "Hassanblend", "Healy's Anime Blend", "Henmix Real", "Hentai Diffusion", "HRL", "ICBINP - I Can't Believe It's Not Photography", "iCoMix", "iCoMix Inpainting", "Illuminati Diffusion", "Inkpunk Diffusion", "Jim Eidomode", "JoMad Diffusion", "JWST Deep Space Diffusion", "Kenshi", "Knollingcase", "Korestyle", "kurzgesagt", "Laolei New Berry Protogen Mix", "Lawlas's yiff mix", "Liberty", "Lyriel", "majicMIX realistic", "Marvel Diffusion", "Mega Merge Diffusion", "MeinaMix", "Microcasing", "Microchars", "Microcritters", "Microscopic", "Microworlds", "Midjourney PaintArt", "Min Illust Background", "Mistoon Amethyst", "ModernArt Diffusion", "mo-di-diffusion", "Moedel", "MoistMix", "MoonMix Fantasy", "Movie Diffusion", "Neurogen", "NeverEnding Dream", "Nitro Diffusion", "OpenJourney Diffusion", "Openniji", "OrbAI", "Papercutcraft", "Papercut Diffusion", "Pastel Mix", "Perfect World", "PFG", "PIXHELL", "Poison", "Pokemon3D", "PortraitPlus", "PPP", "Pretty 2.5D", "PRMJ", "Project Unreal Engine 5", "ProtoGen", "Protogen Anime", "Protogen Infinity", "Pulp Vector Art", "PVC", "Rachel Walker Watercolors", "Rainbowpatch", "Ranma Diffusion", "RCNZ Dumb Monkey", "RCNZ Gorilla With A Brick", "RealBiter", "Real Dos Mix", "Realisian", "Realism Engine", "Realistic Vision", "Realistic Vision Inpainting", "Redshift Diffusion", "Reliberate", "Rev Animated", "Robo-Diffusion", "Rodent Diffusion", "RPG", "Samaritan 3d Cartoon", "Samdoesarts Ultmerge", "Sci-Fi Diffusion", "SD-Silicon", "SDXL 1.0", "Seek.art MEGA", "Smoke Diffusion", "Something", "Sonic Diffusion", "Spider-Verse Diffusion", "Squishmallow Diffusion", "stable_diffusion", "stable_diffusion_2.1", "stable_diffusion_inpainting", "Supermarionation", "SweetBoys 2D", "Sygil-Dev Diffusion", "Synthwave", "SynthwavePunk", "ToonYou", "TrexMix", "trinart", "Trinart Characters", "Tron Legacy Diffusion", "T-Shirt Diffusion", "T-Shirt Print Designs", "Uhmami", "Ultraskin", "UMI Olympus", "Unstable Ink Dream", "URPM", "Valorant Diffusion", "Van Gogh Diffusion", "Vector Art", "vectorartz", "Vintedois Diffusion", "VinteProtogenMix", "Vivid Watercolors", "Voxel Art Diffusion", "waifu_diffusion", "Wavyfusion", "Western Animation Diffusion", "Woop-Woop Photo", "Xynthii-Diffusion", "Yiffy", "Zack3D", "Zeipher Female Model", "Zelda BOTW"]
 
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -41,6 +43,22 @@ s = sched.scheduler(time.time, time.sleep)
 # Initialize variables for checking update and tracking generation status
 checkCounter = 0
 id = None
+FileNotFoundError = ""
+
+def load_api_key():
+    # Default API key value
+    default_api_key = "0000000000"
+
+    try:
+        # Try to open and read the API key from the file
+        with open(os.path.join(os.getcwd(), 'api.key')) as file:
+            api_key = file.read().strip()  # Strip to remove any leading/trailing whitespace
+        # Use the default key if the file is empty or contains only whitespace
+        return api_key
+    except FileNotFoundError:
+        # If the file does not exist, use the default API key
+        return default_api_key
+
 
 # Function to check for updates
 def checkUpdate():
@@ -135,17 +153,17 @@ def checkStatus():
         return
 
 # Main function for generating images
-def generate(image, drawable, selector, totalGens, promptStrength, steps, seed, nsfw, censor_nsfw, prompt, apikey, maxWaitMin):
+def generate(image, drawable, selector, totalGens, promptStrength, steps, seed, nsfw, censor_nsfw, prompt, maxWaitMin):
      
-   
+    promptTitle = prompt
     inprompt = prompt
 
     models = horde[selector]
-
+    
     
     # Validate image size
-    if image.width < 384 or image.width > 1024 or image.height < 384 or image.height > 1024:
-        raise Exception("Invalid image size. Image needs to be between 384x384 and 1024x1024.")
+    if image.width < 64 or image.width > 3072 or image.height < 64 or image.height > 3072:
+        raise Exception("Invalid image size. Image needs to be between 64x64 and 3072x3072.")
 
     # Validate prompt input
     if prompt == "":
@@ -196,17 +214,15 @@ def generate(image, drawable, selector, totalGens, promptStrength, steps, seed, 
         params.update({"width": int(width)})
         params.update({"height": int(height)})
 
-       
-        
-        
-        
-        
-        
         data = json.dumps(data)
+        
+        
+        
 
-        apikey = "0000000000" if not apikey else apikey
+        # Usage example
+        #apikey = load_api_key() if not apikey else apikey
 
-        headers = {"Content-Type": "application/json", "Accept": "application/json", "apikey": apikey}
+        headers = {"Content-Type": "application/json", "Accept": "application/json", "apikey": load_api_key()}
         url = API_ROOT + "generate/async"
 
         request = urllib2.Request(url=url, data=data, headers=headers)
@@ -271,7 +287,7 @@ register(
         (PF_TOGGLE, "nsfw", "NSFW", False),
         (PF_TOGGLE, "censor_snfw", "Censor NSFW", False),
         (PF_STRING, "prompt", "Prompt", ""),
-        (PF_STRING, "apiKey", "API key (optional)", ""),
+        #(PF_STRING, "apiKey", "API key (optional)", ""),
         (PF_SLIDER, "maxWaitMin", "Max Wait (minutes)", 10, (1, 10, 1))
     ],
     [],
