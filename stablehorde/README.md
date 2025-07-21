@@ -49,7 +49,7 @@ Upscale
 ## FAQ
 **Why is the generated image smaller than the opened image?** Stable-diffusion only generates image sizes which are a multiple of 64. This means, if your opened image has a size of 650x512, the generated image will have a size of 640x512.
 
-**Will GIMP 3 be supported?** Yes, the plugin will be ported to GIMP 3.
+**Is GIMP 3 supported?** Yes! take a look at [../stablehorde-gimp3/README.md]
 
 **Will outpainting be supported?** Pretty likely outpainting will be supported. This depends on which features the stablehorde cluster supports.
 
