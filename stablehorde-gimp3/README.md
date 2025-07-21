@@ -14,7 +14,7 @@ changes.
 ## Installation
 ### Download Plugin
 
-Download [gimp-stable-diffusion.py](https://github.com/ikks/gimp-stable-diffusion/blob/main/stablehorde-gimp3/gimp-stable-diffusion.py).
+Download [gimp-stable-diffusion.py](https://github.com/ikks/gimp-stable-diffusion/blob/gimp3/stablehorde-gimp3/gimp-stable-diffusion.py).
 
 ### GIMP
 
