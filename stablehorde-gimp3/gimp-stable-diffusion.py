@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Gimp3 plugin for StableHorde
 # Authors:
-#  * blueturtleai <https://github.com/blueturtle> Original
+#  * blueturtleai <https://github.com/blueturtleai> Original
 #  * binarymass <https://github.com/binarymass>
 #  * Igor Támara <https://github.com/ikks>
 #
@@ -40,8 +40,8 @@ from gi.repository import GObject  # noqa: E402
 plug_in_proc = "ikks-py3-stablehorde"
 plug_in_binary = "py3-stablehorde"
 
-VERSION = 2
-DEBUG = None
+VERSION = 3
+DEBUG = False
 API_ROOT = "https://stablehorde.net/api/v2/"
 
 
@@ -51,14 +51,15 @@ URL_VERSION_UPDATE = "https://raw.githubusercontent.com/ikks/gimp-stable-diffusi
 INIT_FILE = "init.png"
 GENERATED_FILE = "stablehorde-generated.png"
 ANONYMOUS_KEY = "0000000000"
-PLUGIN_DESCRIPTION = """Join on https://stablehorde.net/ to earn kudos and get an API key
-earn kudos and get your own API key.  You need Internet to make use
+PLUGIN_DESCRIPTION = """Stable Diffussion mixes are powered by https://stablehorde.net/ ,
+join, get an API key, earn kudos and create more.  You need Internet to make use
 of this plugin.  You can use the power of other GPUs worlwide and help with yours
 aswell.  An AI plugin for Gimp that just works.
 
 For example, make use of a prompt like:
-  a highly detailed epic cinematic concept art CG render digital painting 
-  artwork: dieselpunk patrol car inspired by a locomotive. By Greg Rutkowski,
+  a highly detailed epic cinematic concept art CG render digital painting
+  artwork: dieselpunk warship with cannons and radar navigating through waves
+  in the ocean. By Greg Rutkowski,
   Ilya Kuvshinov, WLOP, Stanley Artgerm Lau, Ruan Jia and Fenghua Zhong,
   trending on ArtStation, subtle muted cinematic colors, made in Maya, Blender
   and Photoshop, octane render, excellent composition, cinematic atmosphere,
@@ -76,6 +77,7 @@ generated_file = r"{}".format(os.path.join(tempfile.gettempdir(), GENERATED_FILE
 scheduler = sched.scheduler(time.time, time.sleep)
 
 check_counter = 0
+STATUS_BAR = ["|", "/", "-", "\\"]
 
 # Identifier given by stablehorde
 id = None
@@ -100,7 +102,6 @@ WORK_MODEL_OPTIONS = [
 ]
 
 MODELS = [
-    "2DN",
     "AbsoluteReality",
     "AlbedoBase XL (SDXL)",
     "AlbedoBase XL 3.1",
@@ -167,11 +168,13 @@ INPAINT_MODELS = [
 
 
 def show_debugging_data(information, additional=""):
-    if DEBUG:
-        dnow = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{ dnow }] { information }")
-        if additional:
-            print(additional)
+    if not DEBUG:
+        return
+
+    dnow = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{ dnow }] { information }")
+    if additional:
+        print(additional)
 
 
 def get_images():
@@ -215,7 +218,7 @@ def check_status():
             + "s"
         )
     elif data["processing"] > 0:
-        text = "Generating..."
+        text = f"Generating...[{ STATUS_BAR[check_counter%len(STATUS_BAR)] }]"
 
     show_debugging_data(text + f" {check_counter}")
     Gimp.progress_set_text(text)
@@ -242,7 +245,7 @@ def check_status():
         return
 
 
-def display_generated(gimp_image, images):
+def display_generated(gimp_image, images, model):
     color = Gimp.context_get_foreground()
     Gimp.context_set_foreground(Gegl.Color.new("#000000"))
 
@@ -262,23 +265,36 @@ def display_generated(gimp_image, images):
             gimp_image,
             Gio.File.new_for_path(generated_file),
         )
+        new_layer.set_name(model)
         gimp_image.insert_layer(new_layer, None, 0)
     Gimp.context_set_foreground(color)
     return
 
 
 def check_update():
+    """
+    Inform the user regarding a plugin update
+    """
     try:
-        # Check for updates by fetching version information from a URL
-        url = URL_VERSION_UPDATE
-        response = urlopen(url)
-        data = response.read()
-        data = json.loads(data)
-        if VERSION < int(data.get("version-3", 1)):
-            Gimp.message(data["message-3"]["en"])
-    except Exception as ex:
-        show_debugging_data(ex)
-        ex = ex
+        Gimp.get_parasite("stable_horde_checked_update").get_data()
+    except AttributeError as ex:
+        try:
+            # Check for updates by fetching version information from a URL
+            url = URL_VERSION_UPDATE
+            response = urlopen(url)
+            data = response.read()
+            data = json.loads(data)
+            ex = ex
+            Gimp.attach_parasite(
+                Gimp.Parasite.new("stable_horde_checked_update", 1, [1])
+            )
+            if VERSION < int(data.get("version-3", 1)):
+                message = data["message-3"]["en"]
+                Gimp.message(message)
+            return message
+        except (HTTPError, URLError) as ex:
+            # No worries if we don't have connection
+            ex = ex
 
 
 def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
@@ -298,19 +314,36 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
         GimpUi.init(plug_in_binary)
 
         dialog = GimpUi.ProcedureDialog.new(procedure, config, "Stable Horde")
-        dialog.get_widget("init-strength", GimpUi.SpinScale.__gtype__)
         dialog.get_widget("prompt-strength", GimpUi.SpinScale.__gtype__)
+        dialog.get_widget("nimages", GimpUi.SpinScale.__gtype__)
+        dialog.get_widget("init-strength", GimpUi.SpinScale.__gtype__)
         dialog.get_widget("steps", GimpUi.SpinScale.__gtype__)
         dialog.get_widget("max-wait-minutes", GimpUi.SpinScale.__gtype__)
+        dialog.set_sensitive_if_in(
+            "init-strength",
+            None,
+            "prompt-type",
+            Gimp.ValueArray.new_from_values(["MODE_IMG2IMG"]),
+            True,
+        )
+        dialog.set_sensitive_if_in(
+            "nimages",
+            None,
+            "prompt-type",
+            Gimp.ValueArray.new_from_values(["MODE_IMG2IMG", "MODE_INPAINTING"]),
+            True,
+        )
         dialog.fill(
             [
                 "prompt-type",
                 "model",
-                "init-strength",
                 "prompt-strength",
+                "init-strength",
                 "steps",
+                "nimages",
                 "prompt",
                 "nsfw",
+                "censor-nsfw",
                 "api-key",
                 "max-wait-minutes",
             ]
@@ -328,9 +361,11 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
     steps = config.get_property("steps")
     prompt = config.get_property("prompt")
     nsfw = config.get_property("nsfw")
+    censor_nsfw = config.get_property("censor-nsfw")
     api_key = config.get_property("api-key") or ANONYMOUS_KEY
     max_wait_minutes = config.get_property("max-wait-minutes")
     seed = config.get_property("seed")
+    nimages = config.get_property("nimages")
     show_debugging_data(api_key)
     image_width = image.get_width()
     image_height = image.get_height()
@@ -373,7 +408,7 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
             "params": params,
             "prompt": prompt,
             "nsfw": nsfw,
-            "censor_nsfw": False,
+            "censor_nsfw": censor_nsfw,
             "r2": True,
         }
 
@@ -396,12 +431,14 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
             data_to_send.update({"source_image": init})
             data_to_send.update({"source_processing": "img2img"})
             params.update({"denoising_strength": (1 - float(init_strength))})
+            params.update({"n": nimages})
         elif mode == "MODE_INPAINTING":
             init = get_image_data(image, drawables[0])
             model = "stable_diffusion_inpainting"
             data_to_send.update({"models": [model]})
             data_to_send.update({"source_image": init})
             data_to_send.update({"source_processing": "inpainting"})
+            params.update({"n": nimages})
 
         data_to_send = json.dumps(data_to_send)
         post_data = data_to_send.encode("utf-8")
@@ -462,7 +499,7 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
 
         check_status()
         images = get_images()
-        display_generated(image, images)
+        display_generated(image, images, model)
 
     except HTTPError as ex:
         try:
@@ -490,10 +527,9 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
         )
     finally:
         Gimp.progress_end()
-        Gimp.set_data
-        check_update()
+        message = check_update()
 
-    return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, None)
+    return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, message)
 
 
 class StableDiffussion(Gimp.PlugIn):
@@ -526,7 +562,7 @@ class StableDiffussion(Gimp.PlugIn):
             type_generation_choices.add(name, i, _(label), _(blurb))
         procedure.add_choice_argument(
             "prompt-type",
-            _("Do _This"),
+            _("Do T_his"),
             _("Choose what to do"),
             type_generation_choices,
             WORK_MODEL_OPTIONS[0][0],
@@ -536,10 +572,10 @@ class StableDiffussion(Gimp.PlugIn):
         model_choices = Gimp.Choice.new()
         for i, model_name in enumerate(MODELS):
             model_choices.add(model_name, i, model_name.capitalize(), "")
-        print(len(MODELS))
+
         procedure.add_choice_argument(
             "model",
-            _("Model to apply"),
+            _("_Model to apply"),
             _("Which one"),
             model_choices,
             MODELS[0],
@@ -548,8 +584,10 @@ class StableDiffussion(Gimp.PlugIn):
 
         procedure.add_double_argument(
             "init-strength",
-            "Init Str_ength",
-            "The higher the value, your initial image will have more importance",
+            _("Init Stren_gth"),
+            _(
+                "The higher the value, your initial image will have more relevance when transforming"
+            ),
             0.0,
             1.0,
             0.3,
@@ -557,8 +595,8 @@ class StableDiffussion(Gimp.PlugIn):
         )
         procedure.add_double_argument(
             "prompt-strength",
-            "Prompt Str_ength",
-            "How much the AI will follow the prompt, the higher, the more obedient",
+            _("Prompt Stre_ngth"),
+            _("How much the AI will follow the prompt, the higher, the more obedient"),
             0,
             20,
             8,
@@ -566,47 +604,71 @@ class StableDiffussion(Gimp.PlugIn):
         )
         procedure.add_int_argument(
             "steps",
-            "_Steps",
-            "More steps means more detailed, affectes time and GPU usage",
+            _("S_teps"),
+            _("More steps means more detailed, affectes time and GPU usage"),
             10,
             150,
             50,
             GObject.ParamFlags.READWRITE,
         )
-        (
-            procedure.add_string_argument(
-                "seed",
-                "Seed (optional)",
-                "If you want the process repeatable, put something here, otherwise, enthropy will win",
-                "",
-                GObject.ParamFlags.READWRITE,
+        procedure.add_int_argument(
+            "nimages",
+            _("# of _Images"),
+            _(
+                "Number of images to view the transformation from the original to the target prompt"
             ),
+            1,
+            10,
+            1,
+            GObject.ParamFlags.READWRITE,
         )
+
+        procedure.add_string_argument(
+            "seed",
+            _("Seed (optional)"),
+            _(
+                "If you want the process repeatable, put something here, otherwise, enthropy will win"
+            ),
+            "",
+            GObject.ParamFlags.READWRITE,
+        )
+
         procedure.add_string_argument(
             "prompt",
-            "_Prompt",
-            "Let your imagination run wild or put a proper description of your desired output.",
+            _("_Prompt"),
+            _(
+                "Let your imagination run wild or put a proper description of your desired output."
+            ),
             "Draw a beautiful...",
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_boolean_argument(
             "nsfw",
-            "NSF_W",
-            "If not marked, it's faster...",
+            _("NSF_W"),
+            _("If not marked, it's faster, when marked you are on the edge..."),
+            False,
+            GObject.ParamFlags.READWRITE,
+        )
+        procedure.add_boolean_argument(
+            "censor-nsfw",
+            _("Censor NS_FW"),
+            _("Allow if you want to avoid unexpected images..."),
             False,
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_string_argument(
             "api-key",
-            "API _key (optional)",
-            "Get yours at https://stablehorde.net/",
+            _("API _key (optional)"),
+            _("Get yours at https://stablehorde.net/"),
             "",
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_int_argument(
             "max-wait-minutes",
-            "Max Wait (_minutes)",
-            "Depends on your patience and your kudos.  You'll get a complain message if timeout is reached",
+            _("Max Wait (min_utes)"),
+            _(
+                "Depends on your patience and your kudos.  You'll get a complain message if timeout is reached"
+            ),
             1,
             5,
             1,
@@ -618,7 +680,7 @@ class StableDiffussion(Gimp.PlugIn):
 Gimp.main(StableDiffussion.__gtype__, sys.argv)
 
 # TBD
-# * [ ] Add generations
+# * [ ] Convert to methods and submenus
 # * [ ] Use annotations
 # * [ ] Localization
 # * [ ] Add advanced - Other options exposed in the API
