@@ -1,8 +1,18 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+# Gimp3 plugin for StableHorde
+# Authors:
+#  * blueturtleai <https://github.com/blueturtle> Original
+#  * binarymass <https://github.com/binarymass>
+#  * Igor Támara <https://github.com/ikks>
+#
+#
+# MIT lICENSE
+# https://github.com/ikks/gimp-stable-diffusion/blob/main/LICENSE
 
 from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
+from datetime import datetime
 import base64
 import gettext
 import json
@@ -27,18 +37,38 @@ from gi.repository import GLib  # noqa: E402
 from gi.repository import GObject  # noqa: E402
 
 
-_ = gettext.gettext
-
 plug_in_proc = "ikks-py3-stablehorde"
 plug_in_binary = "py3-stablehorde"
 
-VERSION = 1
+VERSION = 2
+DEBUG = None
+API_ROOT = "https://stablehorde.net/api/v2/"
+
+
+HELP_URL = "https://aihorde.net/faq"
+REGISTER_URL = "https://aihorde.net/register"
+URL_VERSION_UPDATE = "https://raw.githubusercontent.com/ikks/gimp-stable-diffusion/gimp3/stablehorde/version.json"
 INIT_FILE = "init.png"
 GENERATED_FILE = "stablehorde-generated.png"
-API_ROOT = "https://stablehorde.net/api/v2/"
+ANONYMOUS_KEY = "0000000000"
+PLUGIN_DESCRIPTION = """Join on https://stablehorde.net/ to earn kudos and get an API key
+earn kudos and get your own API key.  You need Internet to make use
+of this plugin.  You can use the power of other GPUs worlwide and help with yours
+aswell.  An AI plugin for Gimp that just works.
+
+For example, make use of a prompt like:
+  a highly detailed epic cinematic concept art CG render digital painting 
+  artwork: dieselpunk patrol car inspired by a locomotive. By Greg Rutkowski,
+  Ilya Kuvshinov, WLOP, Stanley Artgerm Lau, Ruan Jia and Fenghua Zhong,
+  trending on ArtStation, subtle muted cinematic colors, made in Maya, Blender
+  and Photoshop, octane render, excellent composition, cinematic atmosphere,
+  dynamic dramatic cinematic lighting, precise correct anatomy, aesthetic,
+  very inspirational, arthouse.
+"""
 
 # check every 5 seconds
 CHECK_WAIT = 5
+MAX_TIME_REFRESH = 15
 check_max = None
 
 init_file = r"{}".format(os.path.join(tempfile.gettempdir(), INIT_FILE))
@@ -51,7 +81,10 @@ check_counter = 0
 id = None
 
 
-# Localization helper
+# Localization helpers
+_ = gettext.gettext
+
+
 def N_(message):
     return message
 
@@ -66,14 +99,87 @@ WORK_MODEL_OPTIONS = [
     ),
 ]
 
+MODELS = [
+    "2DN",
+    "AbsoluteReality",
+    "AlbedoBase XL (SDXL)",
+    "AlbedoBase XL 3.1",
+    "AMPonyXL",
+    "Analog Madness",
+    "Anything Diffusion",
+    "Babes",
+    "BB95 Furry Mix",
+    "BB95 Furry Mix v14",
+    "BlenderMix Pony",
+    "Counterfeit",
+    "CyberRealistic Pony",
+    "Deliberate",
+    "Deliberate 3.0",
+    "Dreamshaper",
+    "DreamShaper XL",
+    "DucHaiten GameArt (Unreal) Pony",
+    "Flux.1-Schnell fp8 (Compact)",
+    "Fustercluck",
+    "Grapefruit Hentai",
+    "Hassaku XL",
+    "Hentai Diffusion",
+    "HolyMix ILXL",
+    "ICBINP - I Can't Believe It's Not Photography",
+    "ICBINP XL",
+    "Juggernaut XL",
+    "KaynegIllustriousXL",
+    "majicMIX realistic",
+    "NatViS",
+    "noobEvo",
+    "Nova Anime XL",
+    "Nova Furry Pony",
+    "NTR MIX IL-Noob XL",
+    "Pony Diffusion XL",
+    "Pony Realism",
+    "Prefect Pony",
+    "Realistic Vision",
+    "SDXL 1.0",
+    "Stable Cascade 1.0",
+    "stable_diffusion",
+    "SwamPonyXL",
+    "TUNIX Pony",
+    "Unstable Diffusers XL",
+    "WAI-ANI-NSFW-PONYXL",
+    "WAI-CUTE Pony",
+    "waifu_diffusion",
+    "White Pony Diffusion 4",
+    "Yiffy",
+    "ZavyChromaXL",
+]
+
+# This is a list of inpainting models
+# For now using only stable_diffusion_inpainting
+INPAINT_MODELS = [
+    "A-Zovya RPG Inpainting",
+    "Anything Diffusion Inpainting",
+    "Deliberate Inpainting",
+    "DreamShaper Inpainting",
+    "Epic Diffusion Inpainting",
+    "iCoMix Inpainting",
+    "Realistic Vision Inpainting",
+    "stable_diffusion_inpainting",
+]
+
+
+def show_debugging_data(information, additional=""):
+    if DEBUG:
+        dnow = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{ dnow }] { information }")
+        if additional:
+            print(additional)
+
 
 def get_images():
     url = f"{ API_ROOT }generate/status/{ id }"
     with urlopen(url) as response:
         body = response.read()
     data = json.loads(body)
-
-    print(data)
+    show_debugging_data(data)
 
     return data["generations"]
 
@@ -95,6 +201,8 @@ def check_status():
         body = response.read()
     data = json.loads(body)
 
+    show_debugging_data(data)
+
     global check_counter
     check_counter = check_counter + 1
 
@@ -109,19 +217,22 @@ def check_status():
     elif data["processing"] > 0:
         text = "Generating..."
 
-    print(text + f" {check_counter}")
+    show_debugging_data(text + f" {check_counter}")
     Gimp.progress_set_text(text)
 
     if check_counter < check_max and data["done"] is False:
         if data["is_possible"] is True:
-            scheduler.enter(CHECK_WAIT, 1, check_status, ())
+            wait_time = min(max(CHECK_WAIT, data["wait_time"] / 2), MAX_TIME_REFRESH)
+            scheduler.enter(wait_time, 1, check_status, ())
             scheduler.run()
         else:
+            show_debugging_data(data)
             raise Exception(
                 "Currently no worker available to generate your image. Please try again later."
             )
     elif check_counter == check_max:
         minutes = (check_max * CHECK_WAIT) / 60
+        show_debugging_data(data)
         raise Exception(
             "Image generation timed out after "
             + str(minutes)
@@ -142,7 +253,7 @@ def display_generated(gimp_image, images):
         else:
             bytes = base64.b64decode(image["img"])
 
-        print(f"dumping to { generated_file }")
+        show_debugging_data(f"dumping to { generated_file }")
 
         with open(generated_file, "wb+") as image_file:
             image_file.write(bytes)
@@ -154,6 +265,20 @@ def display_generated(gimp_image, images):
         gimp_image.insert_layer(new_layer, None, 0)
     Gimp.context_set_foreground(color)
     return
+
+
+def check_update():
+    try:
+        # Check for updates by fetching version information from a URL
+        url = URL_VERSION_UPDATE
+        response = urlopen(url)
+        data = response.read()
+        data = json.loads(data)
+        if VERSION < int(data.get("version-3", 1)):
+            Gimp.message(data["message-3"]["en"])
+    except Exception as ex:
+        show_debugging_data(ex)
+        ex = ex
 
 
 def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
@@ -180,6 +305,7 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
         dialog.fill(
             [
                 "prompt-type",
+                "model",
                 "init-strength",
                 "prompt-strength",
                 "steps",
@@ -195,16 +321,17 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
         else:
             dialog.destroy()
 
+    model = config.get_property("model")
     mode = config.get_property("prompt-type")
     init_strength = config.get_property("init-strength")
     prompt_strength = config.get_property("prompt-strength")
     steps = config.get_property("steps")
     prompt = config.get_property("prompt")
     nsfw = config.get_property("nsfw")
-    api_key = config.get_property("api-key") or "0000000000"
+    api_key = config.get_property("api-key") or ANONYMOUS_KEY
     max_wait_minutes = config.get_property("max-wait-minutes")
     seed = config.get_property("seed")
-
+    show_debugging_data(api_key)
     image_width = image.get_width()
     image_height = image.get_height()
     if (
@@ -230,7 +357,7 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
             GLib.Error(_("When inpainting, the image must have an alpha channel.")),
         )
 
-    Gimp.progress_init(_("Generating..."))
+    Gimp.progress_init(_("Starting Horde work..."))
 
     global check_max
     check_max = (max_wait_minutes * 60) / CHECK_WAIT
@@ -263,6 +390,7 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
         params.update({"width": int(width)})
         params.update({"height": int(height)})
 
+        data_to_send.update({"models": [model]})
         if mode == "MODE_IMG2IMG":
             init = get_image_data(image, drawables[0])
             data_to_send.update({"source_image": init})
@@ -270,10 +398,10 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
             params.update({"denoising_strength": (1 - float(init_strength))})
         elif mode == "MODE_INPAINTING":
             init = get_image_data(image, drawables[0])
-            models = ["stable_diffusion_inpainting"]
+            model = "stable_diffusion_inpainting"
+            data_to_send.update({"models": [model]})
             data_to_send.update({"source_image": init})
             data_to_send.update({"source_processing": "inpainting"})
-            data_to_send.update({"models": models})
 
         data_to_send = json.dumps(data_to_send)
         post_data = data_to_send.encode("utf-8")
@@ -286,16 +414,39 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
         url = f"{ API_ROOT }generate/async"
 
         request = Request(url, headers=headers, data=post_data)
-
         try:
+            show_debugging_data(data_to_send)
             with urlopen(request, timeout=10) as response:
                 data = json.loads(response.read().decode("utf-8"))
-            print(data)
+            show_debugging_data(data)
 
             global id
             id = data["id"]
+        except HTTPError as ex:
+            try:
+                data = ex.read().decode("utf-8")
+                data = json.loads(data)
+                message = data.get("message", str(ex))
+                if data.get("rc", "") == "KudosUpfront":
+                    if api_key == ANONYMOUS_KEY:
+                        message = _(
+                            f"Register at { REGISTER_URL } and use your key to improve your rate success. Detail: { message }"
+                        )
+                    else:
+                        message = _(
+                            _(
+                                f"{ HELP_URL } to learn to earn kudos. Detail: { message }"
+                            )
+                        )
+            except Exception:
+                message = str(ex)
+            show_debugging_data(message, data)
+            return procedure.new_return_values(
+                Gimp.PDBStatusType.CALLING_ERROR,
+                GLib.Error(f"'{ message }'."),
+            )
         except URLError as ex:
-            print(str(ex))
+            show_debugging_data(str(ex), data)
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
                 GLib.Error(
@@ -303,7 +454,7 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
                 ),
             )
         except Exception as ex:
-            print(str(ex))
+            show_debugging_data(str(ex), data)
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
                 GLib.Error(f"{ ex }"),
@@ -315,35 +466,32 @@ def stable_diffussion_run(procedure, run_mode, image, drawables, config, data):
 
     except HTTPError as ex:
         try:
-            data = ex.read()
+            data = ex.read().decode("utf-8")
             data = json.loads(data)
-
-            if "message" in data:
-                message = data["message"]
-            else:
-                message = str(ex)
+            message = data.get("message", str(ex))
         except Exception:
             message = str(ex)
-
+        show_debugging_data(message, data)
         return procedure.new_return_values(
             Gimp.PDBStatusType.CALLING_ERROR,
             GLib.Error(f"Stablehorde said: '{ message }'."),
         )
     except URLError as ex:
-        print(str(ex))
+        show_debugging_data(str(ex), data)
         return procedure.new_return_values(
             Gimp.PDBStatusType.CALLING_ERROR,
-            GLib.Error(f"Internet required, chek your connection: '{ ex }'."),
+            GLib.Error(f"Internet required, check your connection: '{ ex }'."),
         )
     except Exception as ex:
-        print(str(ex))
+        show_debugging_data(str(ex), data)
         return procedure.new_return_values(
             Gimp.PDBStatusType.CALLING_ERROR,
             GLib.Error(f"Service failed with: '{ ex }'."),
         )
     finally:
         Gimp.progress_end()
-        # check_update()
+        Gimp.set_data
+        check_update()
 
     return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, None)
 
@@ -369,8 +517,7 @@ class StableDiffussion(Gimp.PlugIn):
         procedure.add_menu_path("<Image>/AI")
         procedure.set_documentation(
             "Generate images with Stable Horde",
-            "Join on https://stablehorde.net/ "
-            + "earn kudos and get your own API key.",
+            PLUGIN_DESCRIPTION,
             None,
         )
 
@@ -383,6 +530,19 @@ class StableDiffussion(Gimp.PlugIn):
             _("Choose what to do"),
             type_generation_choices,
             WORK_MODEL_OPTIONS[0][0],
+            GObject.ParamFlags.READWRITE,
+        )
+
+        model_choices = Gimp.Choice.new()
+        for i, model_name in enumerate(MODELS):
+            model_choices.add(model_name, i, model_name.capitalize(), "")
+        print(len(MODELS))
+        procedure.add_choice_argument(
+            "model",
+            _("Model to apply"),
+            _("Which one"),
+            model_choices,
+            MODELS[0],
             GObject.ParamFlags.READWRITE,
         )
 
@@ -458,9 +618,7 @@ class StableDiffussion(Gimp.PlugIn):
 Gimp.main(StableDiffussion.__gtype__, sys.argv)
 
 # TBD
-# * [ ] Add Model
 # * [ ] Add generations
-# * [ ] Add v3 check_update
 # * [ ] Use annotations
 # * [ ] Localization
 # * [ ] Add advanced - Other options exposed in the API

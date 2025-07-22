@@ -1,1 +1,8 @@
-{"version": 140, "message": "New version of the stablehorde plugin is available. Please update!"}
+{
+  "version": 140,
+  "message": "New version of the stablehorde plugin is available. Please update!",
+  "version-3": 2,
+  "message-3": {
+    "en": "Brand new version, download it at https://github.com/ikks/gimp-stable-diffusion/tree/gimp3/stablehorde-gimp3"
+  }
+}
