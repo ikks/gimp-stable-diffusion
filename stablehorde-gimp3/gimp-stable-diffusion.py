@@ -38,8 +38,12 @@ from gi.repository import GObject  # noqa: E402
 from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = 5
+VERSION = 6
 DEBUG = False
+MIN_WIDTH = 384
+MIN_HEIGHT = 384
+MAX_WIDTH = 1024
+MAX_HEIGHT = 1024
 
 API_ROOT = "https://stablehorde.net/api/v2/"
 HELP_URL = "https://aihorde.net/faq"
@@ -478,8 +482,9 @@ class StableDiffussion(Gimp.PlugIn):
                     "steps",
                     "nsfw",
                     "censor-nsfw",
-                    "api-key",
                     "max-wait-minutes",
+                    "seed",
+                    "api-key",
                 ]
             )
             dialog.fill(controls_to_show)
@@ -489,9 +494,29 @@ class StableDiffussion(Gimp.PlugIn):
             else:
                 dialog.destroy()
 
+        prompt = config.get_property("prompt")
+        if prompt == "":
+            return procedure.new_return_values(
+                Gimp.PDBStatusType.CALLING_ERROR,
+                GLib.Error(_("Please enter a prompt.")),
+            )
+
         if image is None and procedure_name == self.plug_in_proc_t2i:
             width = config.get_property("width")
             height = config.get_property("height")
+
+            if (
+                width < MIN_WIDTH
+                or width > MAX_WIDTH
+                or height < MIN_HEIGHT
+                or height > MAX_HEIGHT
+            ):
+                return procedure.new_return_values(
+                    Gimp.PDBStatusType.CALLING_ERROR,
+                    GLib.Error(
+                        _("Your image needs to be between 384x384 and 1024x1024.")
+                    ),
+                )
             image = Gimp.Image.new(width, height, Gimp.ImageBaseType.RGB)
             layer = Gimp.Layer.new(
                 image,
@@ -510,7 +535,6 @@ class StableDiffussion(Gimp.PlugIn):
         init_strength = config.get_property("init-strength")
         prompt_strength = config.get_property("prompt-strength")
         steps = config.get_property("steps")
-        prompt = config.get_property("prompt")
         nsfw = config.get_property("nsfw")
         censor_nsfw = config.get_property("censor-nsfw")
         api_key = config.get_property("api-key") or ANONYMOUS_KEY
@@ -521,20 +545,14 @@ class StableDiffussion(Gimp.PlugIn):
         image_width = image.get_width()
         image_height = image.get_height()
         if (
-            image_width < 384
-            or image_width > 1024
-            or image_height < 384
-            or image_height > 1024
+            image_width < MIN_WIDTH
+            or image_width > MAX_WIDTH
+            or image_height < MIN_HEIGHT
+            or image_height > MAX_HEIGHT
         ):
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
                 GLib.Error(_("Your image needs to be between 384x384 and 1024x1024.")),
-            )
-
-        if prompt == "":
-            return procedure.new_return_values(
-                Gimp.PDBStatusType.CALLING_ERROR,
-                GLib.Error(_("Please enter a prompt.")),
             )
 
         if mode == "MODE_INPAINTING" and drawables[0].has_alpha == 0:
@@ -785,6 +803,8 @@ Gimp.main(StableDiffussion.__gtype__, sys.argv)
 
 # TBD
 # * [ ] Improve the ticking in the bar
+# * [ ] Add a transparent text layer with the information that generated the image:
+#    - Prompt, steps, model, and any other information on the invocation.
 # * [ ] Use annotations
 # * [ ] Localization
 # cd po && xgettext -o gimp-stable-diffusion.pot --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=.. gimp-stable-diffusion.py && cd ..
