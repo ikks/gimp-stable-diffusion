@@ -14,8 +14,8 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 from datetime import datetime
 import base64
-import gettext
 import json
+import locale
 import os
 import sched
 import sys
@@ -35,9 +35,10 @@ from gi.repository import Gegl  # noqa: E402
 from gi.repository import Gio  # noqa: E402
 from gi.repository import GLib  # noqa: E402
 from gi.repository import GObject  # noqa: E402
+from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = 4
+VERSION = 5
 DEBUG = False
 
 API_ROOT = "https://stablehorde.net/api/v2/"
@@ -75,7 +76,8 @@ STATUS_BAR = ["|", "/", "-", "\\"]
 
 
 # Localization helpers
-_ = gettext.gettext
+def _(message):
+    return GLib.dgettext(None, message)
 
 
 def N_(message):
@@ -180,7 +182,8 @@ def check_update():
                 Gimp.Parasite.new("stable_horde_checked_update", 1, [1])
             )
             if VERSION < int(data.get("version-3", 1)):
-                message = data["message-3"]["en"]
+                lang = locale.getlocale()[0][:2]
+                message = data["message-3"].get(lang, data["message-3"]["en"])
                 Gimp.message(message)
             return message
         except (HTTPError, URLError) as ex:
@@ -189,11 +192,14 @@ def check_update():
 
 
 class ProcedureInformation:
-    def __init__(self, menu_label, model_choices, action, dialog_title):
+    def __init__(
+        self, menu_label, model_choices, action, dialog_title, dialog_description
+    ):
         self.menu_label = menu_label
         self.model_choices = model_choices
         self.action = action
         self.dialog_title = dialog_title
+        self.dialog_description = dialog_description
 
 
 class StableDiffussion(Gimp.PlugIn):
@@ -206,22 +212,31 @@ class StableDiffussion(Gimp.PlugIn):
         super().__init__(*args, **kwargs)
 
         self.t2i = ProcedureInformation(
+            # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
             menu_label=_("_Create Image from Prompt"),
             model_choices=MODELS,
             action="MODE_TEXT2IMG",
+            # TRANSLATORS: Dialog title
             dialog_title=_("From Text"),
+            dialog_description=_("Create an image from a prompt"),
         )
         self.i2i = ProcedureInformation(
+            # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
             menu_label=_("_Transform Image with Prompt"),
             model_choices=MODELS,
             action="MODE_IMG2IMG",
+            # TRANSLATORS: Dialog title
             dialog_title=_("Transform"),
+            dialog_description=_("Transform a source image with a prompt"),
         )
         self.in_paint = ProcedureInformation(
+            # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
             menu_label=_("Adjust Image _Region"),
             model_choices=INPAINT_MODELS,
             action="MODE_INPAINTING",
+            # TRANSLATORS: Dialog title
             dialog_title=_("Inpaint"),
+            dialog_description=_("Replace a portion of the image"),
         )
 
         self.procedures = {
@@ -260,7 +275,7 @@ class StableDiffussion(Gimp.PlugIn):
         procedure.set_attribution("ikks", "Igor Támara", "2025")
         procedure.add_menu_path("<Image>/AI/Stable _Horde")
         procedure.set_documentation(
-            "Generate images with Stable Horde",
+            self.procedures[name].dialog_description,
             PLUGIN_DESCRIPTION,
             None,
         )
@@ -284,8 +299,8 @@ class StableDiffussion(Gimp.PlugIn):
         )
         procedure.add_string_argument(
             "prompt-type",
-            _("Action to execute"),
-            _("Choose what to do"),
+            "Action to execute",
+            "Choose what to do",
             self.procedures[name].action,
             GObject.ParamFlags.READWRITE,
         )
@@ -327,7 +342,7 @@ class StableDiffussion(Gimp.PlugIn):
         procedure.add_int_argument(
             "steps",
             _("S_teps"),
-            _("More steps means more detailed, affectes time and GPU usage"),
+            _("More steps mean more details, affects time and GPU usage"),
             10,
             150,
             50,
@@ -347,7 +362,7 @@ class StableDiffussion(Gimp.PlugIn):
 
         procedure.add_string_argument(
             "seed",
-            _("Seed (optional)"),
+            _("S_eed (optional)"),
             _(
                 "If you want the process repeatable, put something here, otherwise, enthropy will win"
             ),
@@ -381,7 +396,7 @@ class StableDiffussion(Gimp.PlugIn):
         procedure.add_string_argument(
             "api-key",
             _("API _key (optional)"),
-            _("Get yours at https://stablehorde.net/"),
+            _("Get yours at https://stablehorde.net/ for free"),
             "",
             GObject.ParamFlags.READWRITE,
         )
@@ -436,13 +451,20 @@ class StableDiffussion(Gimp.PlugIn):
             dialog.get_widget("steps", GimpUi.SpinScale.__gtype__)
             dialog.get_widget("max-wait-minutes", GimpUi.SpinScale.__gtype__)
 
-            controls_to_show = []
+            dialog.get_label(
+                "header-text",
+                self.procedures[procedure_name].dialog_description,
+                True,
+                False,
+            )
+            controls_to_show = ["header-text", "prompt"]
             if procedure_name == self.plug_in_proc_t2i:
-                controls_to_show.extend(["width", "height"])
+                box = dialog.fill_flowbox("size-box", ["width", "height"])
+                box.set_orientation(Gtk.Orientation.HORIZONTAL)
+                controls_to_show.extend(["size-box"])
             controls_to_show.extend(
                 [
                     "model",
-                    "prompt",
                     "prompt-strength",
                 ]
             )
@@ -594,14 +616,17 @@ class StableDiffussion(Gimp.PlugIn):
                     message = data.get("message", str(ex))
                     if data.get("rc", "") == "KudosUpfront":
                         if api_key == ANONYMOUS_KEY:
-                            message = _(
-                                f"Register at { REGISTER_URL } and use your key to improve your rate success. Detail: { message }"
+                            message = (
+                                _(
+                                    f"Register at { REGISTER_URL } and use your key to improve your rate success. Detail:"
+                                )
+                                + f" { message }"
                             )
                         else:
-                            message = _(
-                                _(
-                                    f"{ HELP_URL } to learn to earn kudos. Detail: { message }"
-                                )
+                            message = (
+                                f"{ HELP_URL } "
+                                + _("to learn to earn kudos. Detail:")
+                                + " { message }"
                             )
                 except Exception as ex2:
                     show_debugging_data(ex2, "No way to recover error msg")
@@ -640,25 +665,27 @@ class StableDiffussion(Gimp.PlugIn):
             show_debugging_data(message, data)
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
-                GLib.Error(f"Stablehorde said: '{ message }'."),
+                GLib.Error(_(f"Stablehorde said: '{ message }'.")),
             )
         except URLError as ex:
             show_debugging_data(str(ex), data)
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
-                GLib.Error(f"Internet required, check your connection: '{ ex }'."),
+                GLib.Error(_(f"Internet required, check your connection: '{ ex }'.")),
             )
         except Exception as ex:
             show_debugging_data(str(ex), data)
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
-                GLib.Error(f"Service failed with: '{ ex }'."),
+                GLib.Error(_(f"Service failed with: '{ ex }'.")),
             )
         finally:
             Gimp.progress_end()
             message = check_update()
 
-        return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, message)
+        return procedure.new_return_values(
+            Gimp.PDBStatusType.SUCCESS, GLib.Error(message)
+        )
 
     def check_status(self):
         url = f"{ API_ROOT }generate/check/{ self.id }"
@@ -673,11 +700,11 @@ class StableDiffussion(Gimp.PlugIn):
 
         if data["processing"] == 0:
             text = (
-                "Queue position: "
+                _("Queue position: ")
                 + str(data["queue_position"])
-                + ", Wait time: "
+                + _(", Wait time: ")
                 + str(data["wait_time"])
-                + "s"
+                + _("s")
             )
         elif data["processing"] > 0:
             text = f"Generating...[{ STATUS_BAR[self.check_counter%len(STATUS_BAR)] }]"
@@ -695,15 +722,16 @@ class StableDiffussion(Gimp.PlugIn):
             else:
                 show_debugging_data(data)
                 raise Exception(
-                    "Currently no worker available to generate your image. Please try again later."
+                    _(
+                        "Currently no worker available to generate your image. Please try again later."
+                    )
                 )
         elif self.check_counter >= self.check_max:
             minutes = (self.check_max * CHECK_WAIT) / 60
             show_debugging_data(data)
             raise Exception(
-                "Image generation timed out after "
-                + str(minutes)
-                + " minutes. Please try again later."
+                _(f"Image generation timed out after { minutes } minutes.")
+                + _("Please try again later.")
             )
         elif data["done"]:
             return
@@ -757,7 +785,6 @@ Gimp.main(StableDiffussion.__gtype__, sys.argv)
 
 # TBD
 # * [ ] Improve the ticking in the bar
-# * [ ] Textview
 # * [ ] Use annotations
 # * [ ] Localization
-# * [ ] Add advanced - Other options exposed in the API
+# cd po && xgettext -o gimp-stable-diffusion.pot --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=.. gimp-stable-diffusion.py && cd ..
