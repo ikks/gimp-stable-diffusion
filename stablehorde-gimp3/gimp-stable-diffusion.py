@@ -38,7 +38,7 @@ from gi.repository import GObject  # noqa: E402
 from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = 6
+VERSION = 7
 DEBUG = False
 MIN_WIDTH = 384
 MIN_HEIGHT = 384
@@ -48,7 +48,7 @@ MAX_HEIGHT = 1024
 API_ROOT = "https://stablehorde.net/api/v2/"
 HELP_URL = "https://aihorde.net/faq"
 REGISTER_URL = "https://aihorde.net/register"
-URL_VERSION_UPDATE = "https://raw.githubusercontent.com/ikks/gimp-stable-diffusion/gimp3/stablehorde/version.json"
+URL_VERSION_UPDATE = "https://raw.githubusercontent.com/ikks/gimp-stable-diffusion/main/stablehorde/version.json"
 PLUGIN_DESCRIPTION = """Stable Diffussion mixes are powered by https://stablehorde.net/ ,
 join, get an API key, earn kudos and create more.  You need Internet to make use
 of this plugin.  You can use the power of other GPUs worlwide and help with yours
@@ -226,12 +226,14 @@ class StableDiffussion(Gimp.PlugIn):
         )
         self.i2i = ProcedureInformation(
             # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-            menu_label=_("_Transform Image with Prompt"),
+            menu_label=_("_Use Image with Prompt"),
             model_choices=MODELS,
             action="MODE_IMG2IMG",
             # TRANSLATORS: Dialog title
-            dialog_title=_("Transform"),
-            dialog_description=_("Transform a source image with a prompt"),
+            dialog_title=_("Use style image"),
+            dialog_description=_(
+                "Create an image from a prompt using the style of the current image"
+            ),
         )
         self.in_paint = ProcedureInformation(
             # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
@@ -240,7 +242,9 @@ class StableDiffussion(Gimp.PlugIn):
             action="MODE_INPAINTING",
             # TRANSLATORS: Dialog title
             dialog_title=_("Inpaint"),
-            dialog_description=_("Replace a portion of the image"),
+            dialog_description=_(
+                "Replace a deleted portion of the image according to a prompt, make sure you see that part transparent"
+            ),
         )
 
         self.procedures = {
@@ -806,5 +810,9 @@ Gimp.main(StableDiffussion.__gtype__, sys.argv)
 # * [ ] Add a transparent text layer with the information that generated the image:
 #    - Prompt, steps, model, and any other information on the invocation.
 # * [ ] Use annotations
+# * [ ] Locally make outpaint Extend to left, bottom, right, top:
+#      - Enlarge Image with a given amount, max 1.024, transparent
+#      - Send to process as inpaint
+# * [ ] Upscale image locally: Use Image, Scale Image Interpolation Lohab
 # * [ ] Localization
 # cd po && xgettext -o gimp-stable-diffusion.pot --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=.. gimp-stable-diffusion.py && cd ..

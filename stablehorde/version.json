@@ -1,9 +1,9 @@
 {
-  "version": 140,
-  "message": "New version of the stablehorde plugin is available. Please update!",
-  "version-3": 6,
+  "version": 141,
+  "message": "Now we have support for Gimp3, download it at https://github.com/ikks/gimp-stable-diffusion/tree/main/stablehorde-gimp3",
+  "version-3": 7,
   "message-3": {
-    "en": "Brand new version, download it at https://github.com/ikks/gimp-stable-diffusion/tree/gimp3/stablehorde-gimp3",
-    "es": "Descarga la versión más reciente desde https://github.com/ikks/gimp-stable-diffusion/tree/gimp3/stablehorde-gimp3"
+    "en": "Brand new version, download it at https://github.com/ikks/gimp-stable-diffusion/tree/main/stablehorde-gimp3",
+    "es": "Descarga la versión más reciente desde https://github.com/ikks/gimp-stable-diffusion/tree/main/stablehorde-gimp3"
   }
 }
