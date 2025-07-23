@@ -211,8 +211,8 @@ at the output it gives.  You can turn on DEBUG editing the plugin file
 * [Gimp](https://gimp.org): The GNU image manipulation program
 * [StableHorde](https://stablehorde.net): A collaborative network to share resources
 * More indepth explanation of options and use cases from a
-[https://opencreativecloud.com/gimp-stable-diffusion-integration/](similar
-plugin)
+[similar
+plugin](https://opencreativecloud.com/gimp-stable-diffusion-integration/)
 * [Local Plugin](https://github.com/kritiksoman/GIMP-ML)
 * Background remover [Local on Linux](https://github.com/manu12121999/GIMP-Background-Remover)
 * [Openvino plugins](https://github.com/intel/openvino-ai-plugins-gimp)
