@@ -1,0 +1,213 @@
+# Gimp plugin for stable diffusion from StableHorde workers
+# Copyright (C) 2025 Igor Támara
+# This file is distributed under the same license as the gimp-stable-diffusion package.
+# Igor Támara <igor.tamara@gmail.com>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-07-24 18:37-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
+#: gimp-stable-diffusion.py:220
+msgid "_Create Image from Prompt"
+msgstr ""
+
+#. TRANSLATORS: Dialog title
+#: gimp-stable-diffusion.py:224
+msgid "From Text"
+msgstr ""
+
+#: gimp-stable-diffusion.py:225
+msgid "Create an image from a prompt"
+msgstr ""
+
+#. TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
+#: gimp-stable-diffusion.py:229
+msgid "_Use Image with Prompt"
+msgstr ""
+
+#. TRANSLATORS: Dialog title
+#: gimp-stable-diffusion.py:233
+msgid "Use style image"
+msgstr ""
+
+#: gimp-stable-diffusion.py:235
+msgid "Create an image from a prompt using the style of the current image"
+msgstr ""
+
+#. TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
+#: gimp-stable-diffusion.py:240
+msgid "Adjust Image _Region"
+msgstr ""
+
+#. TRANSLATORS: Dialog title
+#: gimp-stable-diffusion.py:244
+msgid "Inpaint"
+msgstr ""
+
+#: gimp-stable-diffusion.py:246
+msgid ""
+"Replace a deleted portion of the image according to a prompt, make sure you "
+"see that part transparent"
+msgstr ""
+
+#: gimp-stable-diffusion.py:292
+msgid "W_idth"
+msgstr ""
+
+#: gimp-stable-diffusion.py:301
+msgid "Height"
+msgstr ""
+
+#: gimp-stable-diffusion.py:323
+msgid "_Model to apply"
+msgstr ""
+
+#: gimp-stable-diffusion.py:324
+msgid "Which one"
+msgstr ""
+
+#: gimp-stable-diffusion.py:332
+msgid "Init Stren_gth"
+msgstr ""
+
+#: gimp-stable-diffusion.py:334
+msgid ""
+"The higher the value, your initial image will have more relevance when "
+"transforming"
+msgstr ""
+
+#: gimp-stable-diffusion.py:343
+msgid "Prompt Stre_ngth"
+msgstr ""
+
+#: gimp-stable-diffusion.py:344
+msgid "How much the AI will follow the prompt, the higher, the more obedient"
+msgstr ""
+
+#: gimp-stable-diffusion.py:352
+msgid "S_teps"
+msgstr ""
+
+#: gimp-stable-diffusion.py:353
+msgid "More steps mean more details, affects time and GPU usage"
+msgstr ""
+
+#: gimp-stable-diffusion.py:361
+msgid "_# of Images"
+msgstr ""
+
+#: gimp-stable-diffusion.py:363
+msgid ""
+"Number of images to view the transformation from the original to the target "
+"prompt"
+msgstr ""
+
+#: gimp-stable-diffusion.py:373
+msgid "S_eed (optional)"
+msgstr ""
+
+#: gimp-stable-diffusion.py:375
+msgid ""
+"If you want the process repeatable, put something here, otherwise, enthropy "
+"will win"
+msgstr ""
+
+#: gimp-stable-diffusion.py:383
+msgid "_Prompt"
+msgstr ""
+
+#: gimp-stable-diffusion.py:385
+msgid ""
+"Let your imagination run wild or put a proper description of your desired "
+"output."
+msgstr ""
+
+#: gimp-stable-diffusion.py:392
+msgid "NSF_W"
+msgstr ""
+
+#: gimp-stable-diffusion.py:393
+msgid "If not marked, it's faster, when marked you are on the edge..."
+msgstr ""
+
+#: gimp-stable-diffusion.py:399
+msgid "Censor NS_FW"
+msgstr ""
+
+#: gimp-stable-diffusion.py:400
+msgid "Allow if you want to avoid unexpected images..."
+msgstr ""
+
+#: gimp-stable-diffusion.py:406
+msgid "API _key (optional)"
+msgstr ""
+
+#: gimp-stable-diffusion.py:407
+msgid "Get yours at https://stablehorde.net/ for free"
+msgstr ""
+
+#: gimp-stable-diffusion.py:413
+msgid "Max Wait (min_utes)"
+msgstr ""
+
+#: gimp-stable-diffusion.py:415
+msgid ""
+"Depends on your patience and your kudos.  You'll get a complain message if "
+"timeout is reached"
+msgstr ""
+
+#: gimp-stable-diffusion.py:505
+msgid "Please enter a prompt."
+msgstr ""
+
+#: gimp-stable-diffusion.py:521 gimp-stable-diffusion.py:559
+msgid "Your image needs to be between 384x384 and 1024x1024."
+msgstr ""
+
+#: gimp-stable-diffusion.py:565
+msgid "When inpainting, the image must have an alpha channel."
+msgstr ""
+
+#: gimp-stable-diffusion.py:568
+msgid "Starting Horde work..."
+msgstr ""
+
+#: gimp-stable-diffusion.py:650
+msgid "to learn to earn kudos. Detail:"
+msgstr ""
+
+#: gimp-stable-diffusion.py:666
+msgid "Internet required, chek your connection: "
+msgstr ""
+
+#: gimp-stable-diffusion.py:725
+msgid "Queue position: "
+msgstr ""
+
+#: gimp-stable-diffusion.py:727
+msgid ", Wait time: "
+msgstr ""
+
+#: gimp-stable-diffusion.py:729
+msgid "s"
+msgstr ""
+
+#: gimp-stable-diffusion.py:748
+msgid ""
+"Currently no worker available to generate your image. Please try again later."
+msgstr ""
+
+#: gimp-stable-diffusion.py:756
+msgid "Please try again later."
+msgstr ""
