@@ -40,7 +40,7 @@ You would end up with a structure like:
 
 3. Restart GIMP. You should now see the new menu "AI". If you
 don't see this, something went wrong. Please check in this case
-"Troubleshooting/GIMP" for possible solutions. The menu has one item
+[Troubleshooting/GIMP](#gimp-1) for possible solutions. The menu has one item
 `Stable Horde`. This item can't currently be selected. This will work
 once you have an image open. More about this below.
 
