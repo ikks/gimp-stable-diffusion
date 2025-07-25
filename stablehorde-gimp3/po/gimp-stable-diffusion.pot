@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: 1.0\n"
+"Project-Id-Version: 1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-24 18:37-0500\n"
+"POT-Creation-Date: 2025-07-24 20:36-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,196 +18,196 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 #. TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-#: gimp-stable-diffusion.py:220
+#: gimp-stable-diffusion.py:245
 msgid "_Create Image from Prompt"
 msgstr ""
 
 #. TRANSLATORS: Dialog title
-#: gimp-stable-diffusion.py:224
+#: gimp-stable-diffusion.py:247
 msgid "From Text"
 msgstr ""
 
-#: gimp-stable-diffusion.py:225
+#: gimp-stable-diffusion.py:248
 msgid "Create an image from a prompt"
 msgstr ""
 
 #. TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-#: gimp-stable-diffusion.py:229
+#: gimp-stable-diffusion.py:250
 msgid "_Use Image with Prompt"
 msgstr ""
 
 #. TRANSLATORS: Dialog title
-#: gimp-stable-diffusion.py:233
+#: gimp-stable-diffusion.py:252
 msgid "Use style image"
 msgstr ""
 
-#: gimp-stable-diffusion.py:235
+#: gimp-stable-diffusion.py:254
 msgid "Create an image from a prompt using the style of the current image"
 msgstr ""
 
 #. TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-#: gimp-stable-diffusion.py:240
+#: gimp-stable-diffusion.py:257
 msgid "Adjust Image _Region"
 msgstr ""
 
 #. TRANSLATORS: Dialog title
-#: gimp-stable-diffusion.py:244
+#: gimp-stable-diffusion.py:259
 msgid "Inpaint"
 msgstr ""
 
-#: gimp-stable-diffusion.py:246
+#: gimp-stable-diffusion.py:261
 msgid ""
 "Replace a deleted portion of the image according to a prompt, make sure you "
 "see that part transparent"
 msgstr ""
 
-#: gimp-stable-diffusion.py:292
+#: gimp-stable-diffusion.py:287
 msgid "W_idth"
 msgstr ""
 
-#: gimp-stable-diffusion.py:301
+#: gimp-stable-diffusion.py:296
 msgid "Height"
 msgstr ""
 
-#: gimp-stable-diffusion.py:323
+#: gimp-stable-diffusion.py:318
 msgid "_Model to apply"
 msgstr ""
 
-#: gimp-stable-diffusion.py:324
+#: gimp-stable-diffusion.py:319
 msgid "Which one"
 msgstr ""
 
-#: gimp-stable-diffusion.py:332
+#: gimp-stable-diffusion.py:327
 msgid "Init Stren_gth"
 msgstr ""
 
-#: gimp-stable-diffusion.py:334
+#: gimp-stable-diffusion.py:329
 msgid ""
 "The higher the value, your initial image will have more relevance when "
 "transforming"
 msgstr ""
 
-#: gimp-stable-diffusion.py:343
+#: gimp-stable-diffusion.py:338
 msgid "Prompt Stre_ngth"
 msgstr ""
 
-#: gimp-stable-diffusion.py:344
+#: gimp-stable-diffusion.py:339
 msgid "How much the AI will follow the prompt, the higher, the more obedient"
 msgstr ""
 
-#: gimp-stable-diffusion.py:352
+#: gimp-stable-diffusion.py:347
 msgid "S_teps"
 msgstr ""
 
-#: gimp-stable-diffusion.py:353
+#: gimp-stable-diffusion.py:348
 msgid "More steps mean more details, affects time and GPU usage"
 msgstr ""
 
-#: gimp-stable-diffusion.py:361
+#: gimp-stable-diffusion.py:356
 msgid "_# of Images"
 msgstr ""
 
-#: gimp-stable-diffusion.py:363
+#: gimp-stable-diffusion.py:358
 msgid ""
 "Number of images to view the transformation from the original to the target "
 "prompt"
 msgstr ""
 
-#: gimp-stable-diffusion.py:373
+#: gimp-stable-diffusion.py:368
 msgid "S_eed (optional)"
 msgstr ""
 
-#: gimp-stable-diffusion.py:375
+#: gimp-stable-diffusion.py:370
 msgid ""
 "If you want the process repeatable, put something here, otherwise, enthropy "
 "will win"
 msgstr ""
 
-#: gimp-stable-diffusion.py:383
+#: gimp-stable-diffusion.py:378
 msgid "_Prompt"
 msgstr ""
 
-#: gimp-stable-diffusion.py:385
+#: gimp-stable-diffusion.py:380
 msgid ""
 "Let your imagination run wild or put a proper description of your desired "
 "output."
 msgstr ""
 
-#: gimp-stable-diffusion.py:392
+#: gimp-stable-diffusion.py:387
 msgid "NSF_W"
 msgstr ""
 
-#: gimp-stable-diffusion.py:393
+#: gimp-stable-diffusion.py:388
 msgid "If not marked, it's faster, when marked you are on the edge..."
 msgstr ""
 
-#: gimp-stable-diffusion.py:399
+#: gimp-stable-diffusion.py:394
 msgid "Censor NS_FW"
 msgstr ""
 
-#: gimp-stable-diffusion.py:400
+#: gimp-stable-diffusion.py:395
 msgid "Allow if you want to avoid unexpected images..."
 msgstr ""
 
-#: gimp-stable-diffusion.py:406
+#: gimp-stable-diffusion.py:401
 msgid "API _key (optional)"
 msgstr ""
 
-#: gimp-stable-diffusion.py:407
+#: gimp-stable-diffusion.py:402
 msgid "Get yours at https://stablehorde.net/ for free"
 msgstr ""
 
-#: gimp-stable-diffusion.py:413
+#: gimp-stable-diffusion.py:408
 msgid "Max Wait (min_utes)"
 msgstr ""
 
-#: gimp-stable-diffusion.py:415
+#: gimp-stable-diffusion.py:410
 msgid ""
 "Depends on your patience and your kudos.  You'll get a complain message if "
 "timeout is reached"
 msgstr ""
 
-#: gimp-stable-diffusion.py:505
+#: gimp-stable-diffusion.py:500
 msgid "Please enter a prompt."
 msgstr ""
 
-#: gimp-stable-diffusion.py:521 gimp-stable-diffusion.py:559
+#: gimp-stable-diffusion.py:516 gimp-stable-diffusion.py:554
 msgid "Your image needs to be between 384x384 and 1024x1024."
 msgstr ""
 
-#: gimp-stable-diffusion.py:565
+#: gimp-stable-diffusion.py:560
 msgid "When inpainting, the image must have an alpha channel."
 msgstr ""
 
-#: gimp-stable-diffusion.py:568
+#: gimp-stable-diffusion.py:563
 msgid "Starting Horde work..."
 msgstr ""
 
-#: gimp-stable-diffusion.py:650
+#: gimp-stable-diffusion.py:645
 msgid "to learn to earn kudos. Detail:"
 msgstr ""
 
-#: gimp-stable-diffusion.py:666
+#: gimp-stable-diffusion.py:661
 msgid "Internet required, chek your connection: "
 msgstr ""
 
-#: gimp-stable-diffusion.py:725
+#: gimp-stable-diffusion.py:720
 msgid "Queue position: "
 msgstr ""
 
-#: gimp-stable-diffusion.py:727
+#: gimp-stable-diffusion.py:722
 msgid ", Wait time: "
 msgstr ""
 
-#: gimp-stable-diffusion.py:729
+#: gimp-stable-diffusion.py:724
 msgid "s"
 msgstr ""
 
-#: gimp-stable-diffusion.py:748
+#: gimp-stable-diffusion.py:743
 msgid ""
 "Currently no worker available to generate your image. Please try again later."
 msgstr ""
 
-#: gimp-stable-diffusion.py:756
+#: gimp-stable-diffusion.py:751
 msgid "Please try again later."
 msgstr ""

@@ -196,14 +196,9 @@ def check_update():
 
 
 class ProcedureInformation:
-    def __init__(
-        self, menu_label, model_choices, action, dialog_title, dialog_description
-    ):
-        self.menu_label = menu_label
+    def __init__(self, model_choices, action):
         self.model_choices = model_choices
         self.action = action
-        self.dialog_title = dialog_title
-        self.dialog_description = dialog_description
 
 
 class StableDiffussion(Gimp.PlugIn):
@@ -214,37 +209,17 @@ class StableDiffussion(Gimp.PlugIn):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.t2i = ProcedureInformation(
-            # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-            menu_label=_("_Create Image from Prompt"),
             model_choices=MODELS,
             action="MODE_TEXT2IMG",
-            # TRANSLATORS: Dialog title
-            dialog_title=_("From Text"),
-            dialog_description=_("Create an image from a prompt"),
         )
         self.i2i = ProcedureInformation(
-            # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-            menu_label=_("_Use Image with Prompt"),
             model_choices=MODELS,
             action="MODE_IMG2IMG",
-            # TRANSLATORS: Dialog title
-            dialog_title=_("Use style image"),
-            dialog_description=_(
-                "Create an image from a prompt using the style of the current image"
-            ),
         )
         self.in_paint = ProcedureInformation(
-            # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-            menu_label=_("Adjust Image _Region"),
             model_choices=INPAINT_MODELS,
             action="MODE_INPAINTING",
-            # TRANSLATORS: Dialog title
-            dialog_title=_("Inpaint"),
-            dialog_description=_(
-                "Replace a deleted portion of the image according to a prompt, make sure you see that part transparent"
-            ),
         )
 
         self.procedures = {
@@ -252,7 +227,6 @@ class StableDiffussion(Gimp.PlugIn):
             self.plug_in_proc_i2i: self.i2i,
             self.plug_in_proc_inpaint: self.in_paint,
         }
-
         self.plug_in_procs = list(self.procedures.keys())
 
     def do_query_procedures(self):
@@ -262,9 +236,30 @@ class StableDiffussion(Gimp.PlugIn):
         procedure = None
         self.check_counter = 0
         self.check_max = None
+        print(name)
+        print(self.plug_in_procs)
         if name not in self.plug_in_procs:
             return procedure
 
+        # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
+        self.t2i.menu_label = _("_Create Image from Prompt")
+        # TRANSLATORS: Dialog title
+        self.t2i.dialog_title = _("From Text")
+        self.t2i.dialog_description = _("Create an image from a prompt")
+        # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
+        self.i2i.menu_label = _("_Use Image with Prompt")
+        # TRANSLATORS: Dialog title
+        self.i2i.dialog_title = _("Use style image")
+        self.i2i.dialog_description = _(
+            "Create an image from a prompt using the style of the current image"
+        )
+        # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
+        self.in_paint.menu_label = _("Adjust Image _Region")
+        # TRANSLATORS: Dialog title
+        self.in_paint.dialog_title = _("Inpaint")
+        self.in_paint.dialog_description = _(
+            "Replace a deleted portion of the image according to a prompt, make sure you see that part transparent"
+        )
         procedure = Gimp.ImageProcedure.new(
             self, name, Gimp.PDBProcType.PLUGIN, self.run, None
         )
