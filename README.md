@@ -1,18 +1,17 @@
 # gimp-stable-diffusion
 
-This repository includes a GIMP plugin that generates images with
+This repository offers a GIMP plugin that generates images with
 stable-diffusion:
 
 ## StableHorde
 
-This plugin can be used without running a stable-diffusion server
-yourself. It uses [StableHorde](https://stablehorde.net)
-as the backend. StableHorde is a cluster of
-stable-diffusion servers run by volunteers. [Check it
-out](https://github.com/blueturtleai/gimp-stable-diffusion/tree/main/stablehorde).
+The plugin uses [StableHorde](https://stablehorde.net) as its backend.
+StableHorde is a cluster of stable-diffusion servers run by volunteers.
 
-Head to [Gimp2.10.x instructions](/stablehorde/README.md) or [Gimp3
-instructions](/stablehorde-gimp3/README.md).
+[Download the plugin for Gimp-3](https://github.com/ikks/gimp-stable-diffusion/blob/main/stablehorde-gimp3/gimp-stable-diffusion.py).
+
+Head to [Gimp3 instructions](/stablehorde-gimp3/README.md) or [Gimp2.10.X
+instructions](/stablehorde/README.md).
 
 You can join [Discord](https://discord.gg/3DxrhksKzn), to find someone to
 help you using StableHorde or the plugin itself.  Have fun with your prompts
