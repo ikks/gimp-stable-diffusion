@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-This plugin has Gimp2.10.X series and Gimp3 series.
+This plugin has a version for Gimp2.10.X series and Gimp3 series.
+Gimp2 series will not receive more updates, unless a PR is made
+and approved.
+
+## [8] - i18n support
+
+### Added
+
+* Spanish support and infrastructure for translating to other
+languages.
 
 ## [7] - Gimp3 series release - 2025-07-23
 
