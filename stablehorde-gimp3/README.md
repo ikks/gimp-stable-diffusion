@@ -5,8 +5,9 @@ This repository includes a [GIMP](https://gimp.org) plugin to make
 use of [StableHorde](https://stablehorde.net). Stablehorde is a
 cluster of stable-diffusion servers run by volunteers. You can create
 stable-diffusion images for free without running a colab notebook
-or a local server. Please check the section "Limitations" to better
-understand where the limits are.
+or a local server. Please check the section
+[Limitations](README#Limitations) to better understand where the
+limits are.
 
 Please check [HISTORY.md](/stablehorde/HISTORY.md) for the latest
 changes.
@@ -14,7 +15,7 @@ changes.
 ## Installation
 ### Download Plugin
 
-Download [gimp-stable-diffusion.py](https://github.com/ikks/gimp-stable-diffusion/blob/main/stablehorde-gimp3/gimp-stable-diffusion.py).
+Download the [latest release](https://github.com/ikks/gimp-stable-diffusion/releases/).
 
 ### GIMP
 
@@ -25,27 +26,30 @@ and scroll down to "folders". Expand "folders" and click on
 "plug-ins". Select the folder which includes your username and open
 your file manager there.
 
-2. Create a folder called `gimp-stable-diffusion` and paste
-`gimp-stable-diffusion.py` from the repository into this directory. If
+2. Unzip the downloaded file in your `plug-ins` folder. If
 you are on MacOS or Linux, change the file permissions to 764, leave
 the permissions of the directory as they are.
 
-You would end up with a structure like:
+You will end up with a structure like:
+
 ```
-..
-└── plug-ins
-    └── gimp-stable-diffusion
-        └── gimp-stable-diffusion.py
+plug-ins
+└── gimp-stable-diffusion
+   ├── gimp-stable-diffusion.py
+   └── locale
+       └── es
+           └── LC_MESSAGES
+               └── gimp-stable-diffusion.mo
 ```
 
 3. Restart GIMP. You should now see the new menu "AI". If you
 don't see this, something went wrong. Please check in this case
 [Troubleshooting/GIMP](#gimp-1) for possible solutions. The menu has one item
-`Stable Horde`. This item can't currently be selected. This will work
-once you have an image open. More about this below.
+`Stable Horde` with three submenus.  You can start creating images
+right away.
 
 ## Generate images
-Now we are ready for generating images.
+Now we are ready to generate images.
 
 1. On GIMP create/open an image with a size between 388x388 and
 1024x1024. The generated image will have the size of the opened image
@@ -65,9 +69,7 @@ or a bit smaller. Check below for an explanation.
 <details>
   <summary>Details on using the plugin</summary>
 
-- **Init Strength:** How much the AI should take the init image into
-account. The higher the value, the more will the generated image look
-like the init image. 0.3 is a good value to use.
+- **Prompt:** How the generated image should look like.
 
 - **Prompt Strength:** How much the AI should follow the prompt. The
 higher the value, the more the AI will generate an image which looks
@@ -77,13 +79,6 @@ like your prompt. 7.5 is a good value to use.
 image. The higher the value, the more the AI will work on details. But
 it also means, the longer the generation takes and the more the GPU
 is used. 50 is a good value to use.
-
-- **Seed:** This parameter is optional. If it is empty, a random seed
-will be generated on the server. If you use a seed, the same image is
-generated again in the case the same parameters for init strength,
-steps, etc. are used. A slightly different image will be generated,
-if the parameters are modified. You find the seed in an additional
-layer at the top left.
 
 - **NSFW:** If you want to send a prompt, which is excplicitly NSFW
 (Not Safe For Work).
@@ -95,7 +90,16 @@ layer at the top left.
     you will receive in some cases a black image, although it's not
     NSFW (false positive). Just rerun the generation in that case.
 
-- **Prompt:** How the generated image should look like.
+- **Max Wait:** The maximum time in minutes you want to wait until
+image generation is finished. When the max time is reached, a timeout
+happens and the generation request is stopped.
+
+- **Seed:** This parameter is optional. If it is empty, a random seed
+will be generated on the server. If you use a seed, the same image is
+generated again in the case the same parameters for init strength,
+steps, etc. are used. A slightly different image will be generated,
+if the parameters are modified. You find the seed in an additional
+layer at the top left.
 
 - **API key:** This parameter is optional. If you don't enter an
 API key, you run the image generation as anonymous. The downside
@@ -103,10 +107,24 @@ is, that you will have then the lowest priority in the generation
 queue. For that reason it is recommended registering for free on
 [StableHorde](https://stablehorde.net) and getting an API key.
 
-- **Max Wait:** The maximum time in minutes you want to wait until
-image generation is finished. When the max time is reached, a timeout
-happens and the generation request is stopped.
+### Inpaint
 
+When you are replacing a portion of an image, you can choose also
+
+- **# of Images:** Stating the number of intermediate images to
+be generated from the original one to the final result.
+
+### Use Image in Prompt
+
+This feature ais to use an original image as style for the final
+one and the prompt is the intent of the final image.
+
+- **Init Strength:** How much the AI should take the init image into
+account. The higher the value, the more will the generated image will
+follow the style of the initial image. 0.3 is a good value to use.
+
+</details>
+  
 3. Click on the OK button. The values you inserted into the dialog
 will be transmitted to the server, which dispatches the request now to
 one of the stable-diffusion servers in the cluster. Your generation
@@ -149,8 +167,6 @@ prompts nor your generated images are private.
 supported. As soon as StableHorde supports outpainting, this will be
 available in the plugin too.
 
-</details>
-  
 ## Troubleshooting
 ### GIMP
 #### AI menu is not shown

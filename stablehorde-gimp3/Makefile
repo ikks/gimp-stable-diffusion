@@ -19,8 +19,13 @@ po/$(LANG).po: po/$(EXEC).pot
 po/$(EXEC).pot: $(EXEC).py
 	xgettext -o po/$(EXEC).pot --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=. gimp-stable-diffusion.py
 
+publish:
+	mkdir -p $(EXEC)
+	cp -r $(EXEC).py locale $(EXEC) 
+	zip -r $(EXEC).zip $(EXEC)
+
 clean:
-	@rm -f  locale/$(LANG)/LC_MESSAGES/$(EXEC).mo po/*~
+	@rm -rf  locale/$(LANG)/LC_MESSAGES/$(EXEC).mo po/*~ $(EXEC)
 
 structure:
 	mkdir -p po locale/$(LANG)/LC_MESSAGES
