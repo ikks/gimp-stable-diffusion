@@ -26,6 +26,10 @@ and scroll down to "folders". Expand "folders" and click on
 "plug-ins". Select the folder which includes your username and open
 your file manager there.
 
+
+https://github.com/user-attachments/assets/d5498bf1-319a-4014-b1b6-e79aea26fc36
+
+
 2. Unzip the downloaded file in your `plug-ins` folder. If
 you are on MacOS or Linux, change the file permissions to 764, leave
 the permissions of the directory as they are.
@@ -47,6 +51,8 @@ don't see this, something went wrong. Please check in this case
 [Troubleshooting/GIMP](#gimp-1) for possible solutions. The menu has one item
 `Stable Horde` with three submenus.  You can start creating images
 right away.
+<img width="1366" height="768" alt="screenshot-2025-08-05-195704" src="https://github.com/user-attachments/assets/81b23599-ef36-46c7-92ab-7038989cdcea" />
+
 
 ## Generate images
 Now we are ready to generate images.
@@ -132,6 +138,7 @@ request is added to queue. You can see the queue position and the
 remaining wait time in the status bar of the dialog. When the image
 has been generated successfully, it will be shown as a new image in
 GIMP. The used seed is shown at the top left in an additional layer.
+<img width="1366" height="768" alt="screenshot-2025-08-05-195902" src="https://github.com/user-attachments/assets/964e5181-e410-40e4-9c17-f738449985b1" />
 
 ## Inpainting
 Inpainting means replacing a part of an existing image. For example if
