@@ -38,7 +38,7 @@ from gi.repository import GObject  # noqa: E402
 from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = 7
+VERSION = 8
 DEBUG = False
 MIN_WIDTH = 384
 MIN_HEIGHT = 384
