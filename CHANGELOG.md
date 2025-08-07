@@ -6,6 +6,15 @@ This plugin has a version for Gimp2.10.X series and Gimp3 series.
 Gimp2 series will not receive more updates, unless a PR is made
 and approved.
 
+## [3.0] - Model updates
+
+### Added
+
+- Now models are updated with the latest ones published by StableHorde
+  featuring the most used during the month, for TXT2IMG, IMG2IMG and
+  inpainting
+- Versioning uses again semver as the initial author started.
+
 ## [8] - i18n support
 
 ### Added

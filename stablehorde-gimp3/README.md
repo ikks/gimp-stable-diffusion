@@ -9,8 +9,8 @@ or a local server. Please check the section
 [Limitations](README#Limitations) to better understand where the
 limits are.
 
-Please check [HISTORY.md](/stablehorde/HISTORY.md) for the latest
-changes.
+The latest changes are tracked in [Changelog](CHANGELOG), and for
+historic purposes you can check [HISTORY.md](/stablehorde/HISTORY.md).
 
 ## Installation
 ### Download Plugin
