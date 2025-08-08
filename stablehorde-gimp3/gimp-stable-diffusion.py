@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Gimp3 plugin for StableHorde
 # Authors:
@@ -46,7 +46,7 @@ from gi.repository import GObject  # noqa: E402
 from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = "3.0"
+VERSION = "3.0.1"
 DEBUG = False
 
 log_file = os.path.join(tempfile.gettempdir(), "gimp-stable-diffusion.log")
@@ -509,6 +509,7 @@ class StableHordeClient:
         Uses PROPERTY_CURRENT_SESSION as the name of the property for
         checking only during this session.
         """
+        message = ""
         current_local_session_key = PROPERTY_CURRENT_SESSION
         already_asked = self.informer.get_frontend_property(current_local_session_key)
 

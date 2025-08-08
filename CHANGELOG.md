@@ -6,6 +6,13 @@ This plugin has a version for Gimp2.10.X series and Gimp3 series.
 Gimp2 series will not receive more updates, unless a PR is made
 and approved.
 
+## [3.0.1] - Hotfix release
+
+### Fixed
+
+* When there is a network issue, an exception was raised after
+  image creation checking for a new plugin release.
+
 ## [3.0] - Model updates
 
 ### Added
