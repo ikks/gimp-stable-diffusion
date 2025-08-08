@@ -23,6 +23,7 @@ publish:
 	mkdir -p $(EXEC)
 	cp -r $(EXEC).py locale $(EXEC) 
 	zip -r $(EXEC).zip $(EXEC)
+	scripts/publish
 
 clean:
 	@rm -rf  locale/$(LANG)/LC_MESSAGES/$(EXEC).mo po/*~ $(EXEC)
