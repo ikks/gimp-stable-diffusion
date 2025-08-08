@@ -23,4 +23,4 @@ if [ "$VERSION" != "$CHANGE" ]; then
   exit 1
 fi
 
-echo gh release upload gimp-stable-diffusion.zip "$VERSION" 
+echo gh release create v"$VERSION" && echo gh release upload v"$VERSION" gimp-stable-diffusion.zip 
