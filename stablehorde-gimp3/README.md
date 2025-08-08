@@ -27,7 +27,9 @@ and scroll down to "folders". Expand "folders" and click on
 your file manager there.
 
 
-https://github.com/user-attachments/assets/d5498bf1-319a-4014-b1b6-e79aea26fc36
+
+https://github.com/user-attachments/assets/aec71b81-b410-45e5-9654-294df9dadd84
+
 
 
 2. Unzip the downloaded file in your `plug-ins` folder. If
