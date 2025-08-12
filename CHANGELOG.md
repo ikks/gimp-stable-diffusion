@@ -6,6 +6,12 @@ This plugin has a version for Gimp2.10.X series and Gimp3 series.
 Gimp2 series will not receive more updates, unless a PR is made
 and approved.
 
+## [3.0.2] - Hotfix release
+
+### Fixed
+
+* Shebang problem fixed
+ 
 ## [3.0.1] - Hotfix release
 
 ### Fixed

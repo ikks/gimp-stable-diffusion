@@ -1,4 +1,4 @@
-!/usr/bin/python3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Gimp3 plugin for StableHorde
 # Authors:
@@ -46,7 +46,7 @@ from gi.repository import GObject  # noqa: E402
 from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = "3.0.1"
+VERSION = "3.0.2"
 DEBUG = False
 
 log_file = os.path.join(tempfile.gettempdir(), "gimp-stable-diffusion.log")
