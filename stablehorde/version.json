@@ -1,7 +1,7 @@
 {
   "version": 141,
   "message": "Now we have support for Gimp3, download it at https://github.com/ikks/gimp-stable-diffusion/releases",
-  "version-3": "3.0.2",
+  "version-3": "3.1",
   "message-3": {
     "en": "Brand new version, download it at https://github.com/ikks/gimp-stable-diffusion/releases",
     "es": "Descarga la versión más reciente desde https://github.com/ikks/gimp-stable-diffusion/releases"

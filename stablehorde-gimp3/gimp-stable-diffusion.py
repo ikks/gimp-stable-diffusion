@@ -1480,7 +1480,7 @@ class StableDiffusion(Gimp.PlugIn):
             ),
             10,
             150,
-            50,
+            27,
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_int_argument(
