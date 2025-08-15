@@ -6,17 +6,32 @@ This plugin has a version for Gimp2.10.X series and Gimp3 series.
 Gimp2 series will not receive more updates, unless a PR is made
 and approved.
 
+## [3.1] - Improved UI messages
+
+### Added
+
+- UI Messages have improved information
+- When the time taking to generate is too long, a fallback is presented
+ in a text layer to be able to use the browser to download the image.
+- Improved progressbar ticks.
+- Warnings avoided when possible with default parameters
+
+### Fixed
+
+- GeglBuffers leaked messages
+- Better management on network errors to avoid nested exception
+
 ## [3.0.2] - Hotfix release
 
 ### Fixed
 
-* Shebang problem fixed
+- Shebang problem fixed
  
 ## [3.0.1] - Hotfix release
 
 ### Fixed
 
-* When there is a network issue, an exception was raised after
+- When there is a network issue, an exception was raised after
   image creation checking for a new plugin release.
 
 ## [3.0] - Model updates

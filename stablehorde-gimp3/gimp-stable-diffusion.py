@@ -14,12 +14,15 @@
 import abc
 import asyncio
 import base64
+import contextvars
+import functools
 import gi
 import json
 import locale
 import logging
-import platform
+import math
 import os
+import platform
 import sys
 import tempfile
 import time
@@ -46,13 +49,14 @@ from gi.repository import GObject  # noqa: E402
 from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = "3.0.2"
+VERSION = "3.1"
 DEBUG = False
+LOGGING_LEVEL = logging.DEBUG
 
 log_file = os.path.join(tempfile.gettempdir(), "gimp-stable-diffusion.log")
 logging.basicConfig(
     filename=log_file,
-    level=logging.DEBUG,
+    level=LOGGING_LEVEL,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
@@ -118,21 +122,24 @@ def _(message):
     return GLib.dgettext(None, message)
 
 
-def show_debugging_data(information, additional=""):
+def show_debugging_data(information, additional="", important=False):
     if not DEBUG:
         return
 
     dnow = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if isinstance(information, Exception):
         ln = information.__traceback__.tb_lineno
-        logging.error(f"[{ dnow }]{ln}: { information }")
+        logging.error(f"[{ dnow }]{ln}: { str(information) }")
         logging.error(
             "".join(
                 traceback.format_exception(None, information, information.__traceback__)
             )
         )
     else:
-        logging.debug(f"[{ dnow }] { information }")
+        if important:
+            logging.debug(f"[\033[31;1;4m{ dnow }\033[0m] { information }")
+        else:
+            logging.debug(f"[{ dnow }] { information }")
     if additional:
         logging.debug(f"[{ dnow }]{additional}")
 
@@ -147,11 +154,12 @@ DEFAULT_MODEL = "stable_diffusion"
 Model that is always present for image generation
 """
 
-MIN_WIDTH = 384
-MAX_WIDTH = 1024
-MIN_HEIGHT = 384
-MAX_HEIGHT = 1024
+MIN_WIDTH = 64
+MAX_WIDTH = 3_072
+MIN_HEIGHT = 64
+MAX_HEIGHT = 3_072
 MIN_PROMPT_LENGTH = 10
+MAX_MP = 4_194_304  # 2_048 * 2_048
 """
 It's  needed that the user writes down something to create an image from
 """
@@ -235,6 +243,9 @@ class InformerFrontendInterface(metaclass=abc.ABCMeta):
             or NotImplemented
         )
 
+    def __init__(self):
+        self.generated_url = None
+
     @abc.abstractclassmethod
     def show_message(
         self, message: str, url: str = "", title: str = "", buttons: int = 0
@@ -297,6 +308,44 @@ class InformerFrontendInterface(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
+    def set_generated_image_url_status(self, url: str, valid_to: int) -> None:
+        """
+        Expected to be invoked from StableHordeClient to store the
+
+        * URL of the image being generated and the timestamp for validity and
+        * the time when the image is expected to be generated in seconds.
+        """
+        self.generated_url = url
+        # The images will be generated at most in ten minutes, else the
+        # process is cancelled in the server
+        self.valid_until = datetime.now().timestamp() + min(valid_to, 600)
+
+    def get_generated_image_url_status(self):  # -> (str, int, str) | None:
+        """
+        Expected to be invoked by the UI to fetch information for an
+        image that possibly has been started to being generated,
+
+        Returns:
+         None if there is no generation information
+         * else returns
+           * the URL
+           * approximate checktime to be reviewed as a timestamp
+           * text telling the URL and the expected time to be generated
+        """
+        if not self.generated_url:
+            return None
+
+        return (
+            self.generated_url,
+            self.valid_until,
+            _("Please visit\n  {}\nat around {} to fetch your generated images").format(
+                self.generated_url,
+                datetime.fromtimestamp(self.valid_until).strftime(
+                    "%H:%M:%S (%Y-%m-%d)"
+                ),
+            ),
+        )
+
 
 class StableHordeClient:
     """
@@ -332,6 +381,8 @@ class StableHordeClient:
     if we are still in queue
     """
 
+    MODEL_REQUIREMENTS_URL = "https://raw.githubusercontent.com/Haidra-Org/AI-Horde-image-model-reference/refs/heads/main/stable_diffusion.json"
+
     def __init__(
         self,
         settings: json = None,
@@ -359,7 +410,7 @@ class StableHordeClient:
         }
         self.informer: InformerFrontendInterface = informer
         self.progress: float = 0.0
-        self.progress_text: str = _("Starting")
+        self.progress_text: str = _("Starting...")
         self.warnings: list[json] = []
 
         # Sync informer and async request
@@ -376,7 +427,12 @@ class StableHordeClient:
         Opens a url request async with standard urllib, taking into account
         timeout informs `refresh_each` seconds.
 
-        Requires Python 3.9
+        Fallsback to no async if running on older python version
+
+        * url to open, can be a request
+        * timeout how long to wait before raising a TimeoutError
+        * refresh_each the time in seconds(can be non integer greater than 0)
+        to tick
 
         Uses self.finished_task
         Invokes self.__inform_progress__()
@@ -385,9 +441,14 @@ class StableHordeClient:
 
         def real_url_open():
             show_debugging_data(f"starting request {url}")
-            with urlopen(url, timeout=timeout) as response:
-                show_debugging_data("Data arrived")
-                self.response_data = json.loads(response.read().decode("utf-8"))
+            try:
+                with urlopen(url, timeout=timeout) as response:
+                    show_debugging_data("Data arrived")
+                    self.response_data = json.loads(response.read().decode("utf-8"))
+            except Exception as ex:
+                show_debugging_data(ex)
+                self.timeout = ex
+
             self.finished_task = True
 
         async def counter(until: int = 10) -> None:
@@ -395,7 +456,7 @@ class StableHordeClient:
             initial = now
             for i in range(0, until):
                 if self.finished_task:
-                    show_debugging_data(f"Request took {now - initial}")
+                    show_debugging_data(f"{url} took {now - initial}")
                     break
                 await asyncio.sleep(refresh_each)
                 now = time.perf_counter()
@@ -407,14 +468,193 @@ class StableHordeClient:
             await the_counter
             show_debugging_data("finished request")
 
+        async def local_to_thread(func, /, *args, **kwargs):
+            """
+            python3.8 version do not have to_thread
+            https://stackoverflow.com/a/69165563/107107
+            """
+            loop = asyncio.get_running_loop()
+            ctx = contextvars.copy_context()
+            func_call = functools.partial(ctx.run, func, *args, **kwargs)
+            return await loop.run_in_executor(None, func_call)
+
+        async def local_requester_with_counter():
+            """
+            Auxiliary function to add support for python3.8 missing
+            asyncio.to_thread
+            """
+            task = asyncio.create_task(counter(30))
+            await local_to_thread(real_url_open)
+            self.finished_task = True
+            await task
+
         self.finished_task = False
-        asyncio.run(requester_with_counter())
+        running_python_version = [int(i) for i in sys.version.split()[0].split(".")]
+        self.timeout = False
+        if running_python_version >= [3, 9]:
+            asyncio.run(requester_with_counter())
+        elif running_python_version >= [3, 7]:
+            ## python3.7 introduced create_task
+            # https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
+            asyncio.run(local_requester_with_counter())
+        else:
+            # Falling back to urllib, user experience will be uglier
+            # when waiting...
+            urlopen(url, timeout)
+            self.finished_task = True
+
+        if self.timeout:
+            raise self.timeout
+
+    def __update_models_requirements__(self) -> None:
+        """
+        Downloads model requirements.
+        Usually it is a value to be updated, taking the lowest possible value.
+        Add range when min and/or max are present as prefix of an attribute,
+        the range is stored under the same name of the prefix attribute
+        replaced.
+
+        For example min_steps  and max_steps become range_steps
+        max_cfg_scale becomes range_cfg_scale.
+
+        Modifies self.settings["local_settings"]["requirements"]
+        """
+        # download json
+        # filter the models that have requirements rules, store
+        # the rules processed to be used later easily.
+        # Store fixed value and range when possible
+        # clip_skip
+        # cfg_scale
+        #
+        # min_steps max_steps
+        # min_cfg_scale max_cfg_scale
+        # max_cfg_scale can be alone
+        # [samplers]   -> can be single
+        # [schedulers] -> can be single
+        #
+
+        if "local_settings" not in self.settings:
+            return
+
+        show_debugging_data("Getting requirements for models")
+        url = self.MODEL_REQUIREMENTS_URL
+        self.progress_text = _("Updating model requirements...")
+        self.__url_open__(url)
+        model_information = self.response_data
+        req_info = {}
+
+        for model, reqs in model_information.items():
+            if "requirements" not in reqs:
+                continue
+            req_info[model] = {}
+            # Model with requirement
+            settings_range = {}
+            for name, val in reqs["requirements"].items():
+                # extract range where possible
+                if name.startswith("max_"):
+                    name_req = "range_" + name[4:]
+                    if name_req in settings_range:
+                        settings_range[name_req][1] = val
+                    else:
+                        settings_range[name_req] = [0, val]
+                elif name.startswith("min_"):
+                    name_req = "range_" + name[4:]
+                    if name_req in settings_range:
+                        settings_range[name_req][0] = val
+                    else:
+                        settings_range[name_req] = [val, val]
+                else:
+                    req_info[model][name] = val
+
+            for name, range_vals in settings_range.items():
+                if range_vals[0] == range_vals[1]:
+                    req_info[model][name[6:]] = range_vals[0]
+                else:
+                    req_info[model][name] = range_vals
+
+        show_debugging_data(f"We have requirements for {len(req_info)} models")
+
+        if "requirements" not in self.settings["local_settings"]:
+            show_debugging_data("Creating requirements in local_settings")
+            self.settings["local_settings"]["requirements"] = req_info
+        else:
+            show_debugging_data("Updating requirements in local_settings")
+            self.settings["local_settings"]["requirements"].update(req_info)
+
+    def __get_model_requirements__(self, model: str) -> json:
+        """
+        Given the name of a model, fetch the requirements if any,
+        to have the opportunity to mix the requirements for the
+        model.
+
+        Replaces values that must be fixed and if a value is out
+        of range replaces by the min possible value of the range,
+        if it was a list of possible values like schedulers, the
+        key is replaced by scheduler_name and is enforced to have
+        a valid value, if it resulted that was a wrong value,
+        takes the first available option.
+
+        Intended to set defaults for the model with the requirements
+        present in self.MODEL_REQUIREMENTS_URL json
+
+        The json return has keys with range_ or configuration requirements
+        such as steps, cfg_scale, clip_skip, name of a sampler or a scheduler.
+        """
+        reqs = {}
+        if not self.settings or "local_settings" not in self.settings:
+            show_debugging_data("Too brand new... ")
+            self.settings["local_settings"] = {}
+        if "requirements" not in self.settings["local_settings"]:
+            text_doing = self.progress_text
+            self.__update_models_requirements__()
+            self.progress_text = text_doing
+
+        settings = self.settings["local_settings"]["requirements"].get(model, {})
+
+        if not settings:
+            show_debugging_data(f"No requirements for {model}")
+            return reqs
+
+        for key, val in settings.items():
+            if key.startswith("range_") and (
+                key[6:] not in settings
+                or (settings[key[6:]] < val[0])
+                or (val[1] < settings[key[6:]])
+            ):
+                reqs[key[6:]] = val[0]
+            elif isinstance(val, list):
+                key_name = key[:-1] + "_name"
+                if key_name not in settings or settings[key_name] not in val:
+                    reqs[key_name] = val[0]
+            else:
+                reqs[key] = val
+
+        show_debugging_data(f"Requirements for { model } are { reqs }")
+        return reqs
+
+    def __get_model_restrictions__(self, model: str) -> json:
+        """
+        Returns a json that offers for each key a fixed value or
+        a range for the requirements present in self.settings["local_settings"].
+         * Fixed Value
+         * Range
+
+        Most commonly the result is an empty json.
+
+        Intended for UI validation.
+
+        Can offer range for initial min or max values, and also a
+        list of strings or fixed values.
+        """
+        return self.settings.get("requirements", {model: {}}).get(model, {})
 
     def refresh_models(self):
         """
         Refreshes the model list with the 50 more used including always stable_diffusion
-        we update self.settings to store the date when the models were stored.
+        we update self.settings to store the date when the models were refreshed.
         """
+        default_models = MODELS
+        self.staging = "Refresh models"
         previous_update = self.settings.get(
             "local_settings", {"date_refreshed_models": "2025-07-01"}
         ).get("date_refreshed_models", "2025-07-01")
@@ -433,19 +673,19 @@ class StableHordeClient:
         url = API_ROOT + "/stats/img/models?model_state=known"
         self.headers["X-Fields"] = "month"
 
-        self.progress_text = _("Updating models")
+        self.progress_text = _("Updating Models...")
         self.__inform_progress__()
         try:
             self.__url_open__(url)
             del self.headers["X-Fields"]
-        except (HTTPError, URLError):
-            message = _(
-                "Tried to get the latest models, check your Internet connection"
-            )
-            self.informer.show_error(message)
-            return
         except TimeoutError:
             show_debugging_data("Failed updating models due to timeout")
+            return
+        except (HTTPError, URLError):
+            message = _(
+                "Service failed to get latest models, check your Internet connection"
+            )
+            self.informer.show_error(message)
             return
 
         # Select the most popular models
@@ -461,6 +701,7 @@ class StableHordeClient:
                 for key, val in popular_models
                 if key.lower().count("inpaint") > 0
             ][: StableHordeClient.MAX_MODELS_LIST]
+            default_models = INPAINT_MODELS
         else:
             popular_models = [
                 (key, val)
@@ -474,18 +715,32 @@ class StableHordeClient:
             fetched_models.append(default_model)
         if len(fetched_models) > 3:
             compare = set(fetched_models)
-            new_models = compare.difference(locals["models"])
+            new_models = compare.difference(locals.get("models", default_models))
             if new_models:
                 show_debugging_data(f"New models {len(new_models)}")
                 locals["models"] = sorted(fetched_models, key=lambda c: c.upper())
-                if len(new_models) == 1:
-                    message = _("We have a new model:\n\n * ") + new_models[0]
+                size_models = len(new_models)
+                if size_models == 1:
+                    message = _("We have a new model:") + "\n\n * " + new_models[0]
                 else:
-                    message = _("We have new models:\n * ") + "\n * ".join(new_models)
+                    if size_models > 10:
+                        message = (
+                            _("We have {size_models} new models, including:")
+                            + "\n * "
+                            + "\n * ".join(list(new_models)[:10])
+                        )
+                    else:
+                        message = (
+                            _("We have {size_models} new models:")
+                            + "\n * "
+                            + "\n * ".join(list(new_models)[:10])
+                        )
 
                 self.informer.show_message(message)
 
         self.settings["local_settings"] = locals
+
+        self.__update_models_requirements__()
 
         if self.settings["model"] not in locals["models"]:
             self.settings["model"] = locals["models"][0]
@@ -537,10 +792,9 @@ class StableHordeClient:
             if local_version < incoming_version:
                 lang = locale.getlocale()[0][:2]
                 message = data["message"].get(lang, data["message"]["en"])
-            message = data["message"].get(lang, data["message"]["en"])
         except (HTTPError, URLError):
             message = _(
-                "Tried to check for most recent version, check your Internet connection"
+                "Failed to check for most recent version, check your Internet connection"
             )
         return message
 
@@ -579,6 +833,7 @@ class StableHordeClient:
         When no success, returns [].  raises exceptions, but tries to
         offer helpful messages
         """
+        self.stage = "Nothing"
         self.settings.update(options)
         self.api_key = options["api_key"]
         self.headers["apikey"] = self.api_key
@@ -595,13 +850,42 @@ class StableHordeClient:
             3.0 * options["max_wait_minutes"]
         )  # Percentage and minutes 100*ellapsed/(max_wait*60)
 
-        self.progress_text = _("Contacting the Horde")
+        self.progress_text = _("Contacting the Horde...")
         try:
             params = {
                 "cfg_scale": float(options["prompt_strength"]),
                 "steps": int(options["steps"]),
                 "seed": options["seed"],
             }
+
+            restrictions = self.__get_model_requirements__(options["model"])
+            params.update(restrictions)
+
+            width = max(options["image_width"], MIN_WIDTH)
+            width = min(options["image_width"], MAX_WIDTH)
+            height = max(options["image_height"], MIN_HEIGHT)
+            height = min(options["image_height"], MAX_HEIGHT)
+
+            if width * height > MAX_MP:
+                factor = (width * 1.0) / height
+                ratio = math.sqrt(MAX_MP / (width * height))
+                if factor < 1.0:
+                    width = width * ratio * factor
+                    height = height * ratio * factor
+                else:
+                    height = height * ratio / factor
+                    width = width * ratio / factor
+                width = int(width)
+                height = int(height)
+
+            if width % 64 != 0:
+                width = int(width / 64) * 64
+
+            if height % 64 != 0:
+                height = int(height / 64) * 64
+
+            params.update({"width": int(width)})
+            params.update({"height": int(height)})
 
             data_to_send = {
                 "params": params,
@@ -611,33 +895,20 @@ class StableHordeClient:
                 "r2": True,
             }
 
-            if options["image_width"] % 64 != 0:
-                width = int(options["image_width"] / 64) * 64
-            else:
-                width = options["image_width"]
-
-            if options["image_height"] % 64 != 0:
-                height = int(options["image_height"] / 64) * 64
-            else:
-                height = options["image_height"]
-
-            params.update({"width": int(width)})
-            params.update({"height": int(height)})
-
             data_to_send.update({"models": [options["model"]]})
 
             mode = options.get("mode", "")
             if mode == "MODE_IMG2IMG":
                 data_to_send.update({"source_image": options["source_image"]})
                 data_to_send.update({"source_processing": "img2img"})
-                params.update(
+                data_to_send["params"].update(
                     {"denoising_strength": (1 - float(options["init_strength"]))}
                 )
-                params.update({"n": options["nimages"]})
+                data_to_send["params"].update({"n": options["nimages"]})
             elif mode == "MODE_INPAINTING":
                 data_to_send.update({"source_image": options["source_image"]})
                 data_to_send.update({"source_processing": "inpainting"})
-                params.update({"n": options["nimages"]})
+                data_to_send["params"].update({"n": options["nimages"]})
 
             dt = data_to_send.copy()
             if "source_image" in dt:
@@ -645,14 +916,13 @@ class StableHordeClient:
                 dt["source_image_size"] = len(data_to_send["source_image"])
             show_debugging_data(dt)
 
-            data_to_send = json.dumps(data_to_send)
-
-            post_data = data_to_send.encode("utf-8")
+            post_data = json.dumps(data_to_send).encode("utf-8")
 
             url = f"{ API_ROOT }generate/async"
 
             request = Request(url, headers=self.headers, data=post_data)
             try:
+                self.stage = "Contacting..."
                 self.__inform_progress__()
                 self.__url_open__(request, 15)
                 data = self.response_data
@@ -673,9 +943,9 @@ class StableHordeClient:
                         if self.api_key == ANONYMOUS:
                             message = (
                                 _(
-                                    f"Register at { REGISTER_STABLE_HORDE_URL } and use your key to improve your rate success. Detail:"
-                                )
-                                + f" { message }."
+                                    "Register at {} and use your key to improve your rate success. Detail:"
+                                ).format(REGISTER_STABLE_HORDE_URL)
+                                + f"\n\n { message }."
                             )
                         else:
                             message = (
@@ -719,7 +989,7 @@ class StableHordeClient:
                 show_debugging_data(ex3)
                 message = str(ex)
             show_debugging_data(ex, data)
-            self.informer.show_error(_("Stablehorde said: ") + f"'{ message }'.")
+            self.informer.show_error(_("Stablehorde response: ") + f"'{ message }'.")
             return ""
         except URLError as ex:
             show_debugging_data(ex, data)
@@ -736,6 +1006,7 @@ class StableHordeClient:
             self.informer.show_error(_("Service failed with: ") + f"'{ ex }'.")
             return ""
         finally:
+            self.informer.set_finished()
             message = self.check_update()
             if message:
                 self.informer.show_message(message, url=URL_DOWNLOAD)
@@ -749,7 +1020,9 @@ class StableHordeClient:
         """
         progress = 100 - (int(self.max_time - datetime.now().timestamp()) * self.factor)
 
-        show_debugging_data(f"{progress} {self.progress_text}")
+        show_debugging_data(
+            f"[{progress:.2f}/{self.settings["max_wait_minutes"] * 60}] {self.progress_text}"
+        )
 
         if self.informer and progress != self.progress:
             self.informer.update_status(self.progress_text, progress)
@@ -780,14 +1053,14 @@ class StableHordeClient:
 
         self.check_counter = self.check_counter + 1
 
-        if data["done"]:
-            self.progress_text = _("Downloading generated image")
+        if data["finished"]:
+            self.progress_text = _("Downloading generated image...")
             self.__inform_progress__()
             return True
 
         if data["processing"] == 0:
             if data["queue_position"] == 0:
-                text = _("You are the first in the queue")
+                text = _("You are first in the queue")
             else:
                 text = _("Queue position: ") + str(data["queue_position"])
             show_debugging_data(f"Wait time {data['wait_time']}")
@@ -803,22 +1076,30 @@ class StableHordeClient:
             ):
                 # If we are in queue, we will not be served in time
                 show_debugging_data(data)
+                status_url = f"{ API_ROOT }generate/status/{ self.id }"
+                self.informer.set_generated_image_url_status(
+                    status_url, data["wait_time"]
+                )
+                show_debugging_data(self.informer.get_generated_image_url_status())
                 if self.api_key == ANONYMOUS:
                     message = (
-                        _("Get an Api key for free at ")
+                        _("Get a free API Key at ")
                         + REGISTER_STABLE_HORDE_URL
+                        + ".\n "
                         + _(
-                            ".\n This model takes more time than your current configuration."
+                            "This model takes more time than your current configuration."
                         )
                     )
                     raise IdentifiedError(message, url=REGISTER_STABLE_HORDE_URL)
                 else:
                     message = (
-                        _("Please try with other model,")
-                        + f"{self.settings['model']} would take more time than you configured,"
+                        _("Please try another model,")
+                        + _("{} would take more time than you configured,").format(
+                            self.settings["model"]
+                        )
                         + _(" or try again later.")
                     )
-                    raise IdentifiedError(message)
+                    raise IdentifiedError(message, url=status_url)
 
             if data["is_possible"] is True:
                 # We still have time to wait, given that the status is processing, we
@@ -836,7 +1117,7 @@ class StableHordeClient:
                 show_debugging_data(data)
                 raise IdentifiedError(
                     _(
-                        "Currently no worker available to generate your image. Please try again later."
+                        "There are no workers available with these settings. Please try again later."
                     )
                 )
         else:
@@ -844,9 +1125,8 @@ class StableHordeClient:
                 message = (
                     _("Get an Api key for free at ")
                     + REGISTER_STABLE_HORDE_URL
-                    + _(
-                        ".\n This model takes more time than your current configuration."
-                    )
+                    + ".\n "
+                    + _("This model takes more time than your current configuration.")
                 )
                 raise IdentifiedError(message, url=REGISTER_STABLE_HORDE_URL)
             else:
@@ -854,12 +1134,15 @@ class StableHordeClient:
                 show_debugging_data(data)
                 if minutes == 1:
                     raise IdentifiedError(
-                        _(f"Image generation timed out after { minutes } minute.")
+                        _("Probably your image will take one additional minute.")
+                        + " "
                         + _("Please try again later.")
                     )
                 else:
                     raise IdentifiedError(
-                        _(f"Image generation timed out after { minutes } minutes.")
+                        _(
+                            "Probably your image will take {} additional minutes."
+                        ).format(minutes)
                         + _("Please try again later.")
                     )
         return False
@@ -869,8 +1152,9 @@ class StableHordeClient:
         At this stage Stable horde has generated the images and it's time
         to download them all.
         """
+        self.stage = "Getting images"
         url = f"{ API_ROOT }generate/status/{ self.id }"
-        self.progress_text = _("fetching images")
+        self.progress_text = _("Fetching images...")
         self.__inform_progress__()
         self.__url_open__(url)
         data = self.response_data
@@ -883,6 +1167,7 @@ class StableHordeClient:
         Downloads the generated images and returns the full path of the
         downloaded images.
         """
+        self.stage = "Downloading images"
         show_debugging_data("Start to download generated images")
         generated_filenames = []
         cont = 1
@@ -894,10 +1179,10 @@ class StableHordeClient:
                 if image["img"].startswith("https"):
                     show_debugging_data(f"Downloading { image['img'] }")
                     if nimages == 1:
-                        self.progress_text = _("Downloading result")
+                        self.progress_text = _("Downloading result...")
                     else:
-                        self.progress_text = _(
-                            f"Downloading image { cont }/{ nimages }"
+                        self.progress_text = (
+                            _("Downloading image") + f" { cont }/{ nimages }"
                         )
                     self.__inform_progress__()
                     with urlopen(image["img"]) as response:
@@ -911,9 +1196,13 @@ class StableHordeClient:
                 generated_filenames.append(generated_file.name)
                 cont += 1
         if self.warnings:
-            message = _(
-                "Maybe you need to change some parameters to generate succesfully an image. Horde said:\n * "
-            ) + "\n * ".join([i["message"] for i in self.warnings])
+            message = (
+                _(
+                    "You may need to reduce your settings or choose another model, or you may have been censored. Horde message"
+                )
+                + ":\n * "
+                + "\n * ".join([i["message"] for i in self.warnings])
+            )
             show_debugging_data(self.warnings)
             self.informer.show_error(message, title="warning")
             self.warnings = []
@@ -992,6 +1281,7 @@ class ProcedureInformation:
     def update_choices_into(self, new_choices: json, st_manager: HordeClientSettings):
         """
         updates st_manager with new_settings
+        updates stored choices with most recent information from st_manager
         """
         if not new_choices:
             return
@@ -1003,6 +1293,12 @@ class ProcedureInformation:
             "date_refreshed_models": new_choices["date_refreshed_models"],
             "models": new_choices["models"],
         }
+        if "requirements" in new_choices:
+            if "requirements" in current_choices:
+                current_choices["requirements"].update(new_choices["requirements"])
+            else:
+                current_choices["requirements"] = new_choices["requirements"]
+
         show_debugging_data(current_choices)
         st_manager.save(current_choices)
 
@@ -1039,6 +1335,8 @@ class StableDiffusion(Gimp.PlugIn):
             self.plug_in_proc_inpaint: self.in_paint,
         }
         self.plug_in_procs = list(self.procedures.keys())
+        if DEBUG:
+            print(f"Your log is at {log_file}")
         super().__init__(*args, **kwargs)
 
     def do_query_procedures(self) -> list[str]:
@@ -1071,23 +1369,23 @@ class StableDiffusion(Gimp.PlugIn):
         )
         self.procedures[name].update_choices_from(self.st_manager.load())
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-        self.t2i.menu_label = _("_Create Image from Prompt")
+        self.t2i.menu_label = _("_Text to Image")
         # TRANSLATORS: Dialog title
-        self.t2i.dialog_title = _("From Text")
-        self.t2i.dialog_description = _("Create an image from a prompt")
+        self.t2i.dialog_title = _("TXT2IMG")
+        self.t2i.dialog_description = _("Generate an image from a text") + "\n"
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-        self.i2i.menu_label = _("_Use Image with Prompt")
+        self.i2i.menu_label = _("_Image to Image")
         # TRANSLATORS: Dialog title
-        self.i2i.dialog_title = _("Use style image")
-        self.i2i.dialog_description = _(
-            "Create an image from a prompt using the style of the current image"
+        self.i2i.dialog_title = _("IMG2IMG")
+        self.i2i.dialog_description = (
+            _("Generate a variation of the current image") + "\n"
         )
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-        self.in_paint.menu_label = _("Adjust Image _Region")
+        self.in_paint.menu_label = _("Inpainting")
         # TRANSLATORS: Dialog title
-        self.in_paint.dialog_title = _("Inpaint")
-        self.in_paint.dialog_description = _(
-            "Replace a deleted portion of the image according to a prompt, make sure you see that part transparent"
+        self.in_paint.dialog_title = _("Inpaint Region")
+        self.in_paint.dialog_description = (
+            _("Replace transparent portion of the image") + "\n"
         )
         procedure = Gimp.ImageProcedure.new(
             self, name, Gimp.PDBProcType.PLUGIN, self.run, None
@@ -1114,18 +1412,18 @@ class StableDiffusion(Gimp.PlugIn):
         procedure.add_int_argument(
             "width",
             _("W_idth"),
-            None,
-            384,
-            1024,
+            _(f"Height X Width can be at most 2048x2048={MAX_MP} pixels"),
+            MIN_WIDTH,
+            MAX_WIDTH,
             512,
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_int_argument(
             "height",
             _("Height"),
-            None,
-            384,
-            1024,
+            _(f"Height X Width can be at most 2048x2048={MAX_MP} pixels"),
+            MIN_HEIGHT,
+            MAX_HEIGHT,
             384,
             GObject.ParamFlags.READWRITE,
         )
@@ -1154,9 +1452,9 @@ class StableDiffusion(Gimp.PlugIn):
 
         procedure.add_double_argument(
             "init-strength",
-            _("Init Stren_gth"),
+            _("_Denoising"),
             _(
-                "The higher the value, your initial image will have more relevance when transforming"
+                "How much of the original image to convert to noise and regenerate. The higher you set this, the more the image changes"
             ),
             0.0,
             1.0,
@@ -1165,8 +1463,10 @@ class StableDiffusion(Gimp.PlugIn):
         )
         procedure.add_double_argument(
             "prompt-strength",
-            _("Prompt Stre_ngth"),
-            _("How much the AI will follow the prompt, the higher, the more obedient"),
+            _("Prompt Stre_ngth (CFG)"),
+            _(
+                "How strongly the AI follows the prompt vs how much creativity to allow it. Set to 1 for Flux, use 2-4 for LCM and lightning, 5-7 is common for SDXL models, 6-9 is common for sd15"
+            ),
             0,
             20,
             8,
@@ -1175,7 +1475,9 @@ class StableDiffusion(Gimp.PlugIn):
         procedure.add_int_argument(
             "steps",
             _("S_teps"),
-            _("More steps mean more details, affects time and GPU usage"),
+            _(
+                "How many sampling steps to perform for generation. Should generally be at least double the CFG unless using a second-order or higher sampler (anything with dpmpp is second order)"
+            ),
             10,
             150,
             50,
@@ -1183,10 +1485,8 @@ class StableDiffusion(Gimp.PlugIn):
         )
         procedure.add_int_argument(
             "nimages",
-            _("_# of Images"),
-            _(
-                "Number of images to view the transformation from the original to the target prompt"
-            ),
+            _("Image Count"),
+            _("Number of images to generate"),
             1,
             10,
             1,
@@ -1197,7 +1497,7 @@ class StableDiffusion(Gimp.PlugIn):
             "seed",
             _("S_eed (optional)"),
             _(
-                "If you want the process repeatable, put something here, otherwise, enthropy will win"
+                "Set a seed to regenerate (reproducible), or it'll be chosen at random by the worker"
             ),
             "",
             GObject.ParamFlags.READWRITE,
@@ -1207,7 +1507,7 @@ class StableDiffusion(Gimp.PlugIn):
             "prompt",
             _("_Prompt"),
             _(
-                "Let your imagination run wild or put a proper description of your desired output."
+                "Let your imagination run wild or put a proper description of your desired output. Use full grammar for Flux, use tag-like language for sd15, use short phrases for sdxl. Pony, Noob, Illustrious are SDXL with strong understanding of booru tags"
             ),
             "Draw a beautiful...",
             GObject.ParamFlags.READWRITE,
@@ -1215,29 +1515,35 @@ class StableDiffusion(Gimp.PlugIn):
         procedure.add_boolean_argument(
             "nsfw",
             _("NSF_W"),
-            _("If not marked, it's faster, when marked you are on the edge..."),
+            _(
+                "Whether or not your image is intended to be NSFW. May reduce generation speed (workers can choose if they wish to take nsfw requests)"
+            ),
             False,
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_boolean_argument(
             "censor-nsfw",
             _("Censor NS_FW"),
-            _("Allow if you want to avoid unexpected images..."),
+            _(
+                "Separate from the NSFW flag, should workers return nsfw images. Censorship is implemented to be safe and overcensor rather than risk returning unwanted NSFW"
+            ),
             False,
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_string_argument(
             "api-key",
             _("API _key (optional)"),
-            _("Get yours at https://stablehorde.net/ for free"),
+            _(
+                "Get yours at https://stablehorde.net/ for free. Recommended: Anonymous users are last in the queue"
+            ),
             "",
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_int_argument(
             "max-wait-minutes",
-            _("Max Wait (min_utes)"),
+            _("Max Wait (in min_utes)"),
             _(
-                "Depends on your patience and your kudos.  You'll get a complain message if timeout is reached"
+                "How long to wait for your generation to complete. Depends on number of workers and user priority (more kudos = more priority. Anonymous users are last)"
             ),
             1,
             5,
@@ -1248,13 +1554,14 @@ class StableDiffusion(Gimp.PlugIn):
 
     def run(self, procedure, run_mode, image, drawables, config, data):
         procedure_name = procedure.get_name()
+        created_image = False
         if image is None and procedure_name in [
             self.plug_in_proc_i2i,
             self.plug_in_proc_inpaint,
         ]:
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
-                GLib.Error(f"Procedure '{procedure_name}' requires an image."),
+                GLib.Error(f"'{procedure_name}' requires an image."),
             )
         if len(drawables) > 1:
             return procedure.new_return_values(
@@ -1283,6 +1590,10 @@ class StableDiffusion(Gimp.PlugIn):
             dialog.get_widget("init-strength", GimpUi.SpinScale.__gtype__)
             dialog.get_widget("steps", GimpUi.SpinScale.__gtype__)
             dialog.get_widget("max-wait-minutes", GimpUi.SpinScale.__gtype__)
+            ctrl = dialog.get_widget("width", GimpUi.LabelSpin.__gtype__)
+            ctrl.set_increments(64, 128)
+            ctrl = dialog.get_widget("height", GimpUi.LabelSpin.__gtype__)
+            ctrl.set_increments(64, 128)
 
             dialog.get_label(
                 "header-text",
@@ -1318,10 +1629,8 @@ class StableDiffusion(Gimp.PlugIn):
             )
             dialog.fill(controls_to_show)
             if not dialog.run():
-                dialog.destroy()
                 return procedure.new_return_values(Gimp.PDBStatusType.CANCEL, None)
-            else:
-                dialog.destroy()
+            dialog.destroy()
 
         prompt = config.get_property("prompt")
         if prompt == "":
@@ -1346,7 +1655,18 @@ class StableDiffusion(Gimp.PlugIn):
                 return procedure.new_return_values(
                     Gimp.PDBStatusType.CALLING_ERROR,
                     GLib.Error(
-                        _("Your image needs to be between 384x384 and 1024x1024.")
+                        _("The length of each side must be between {} and {}").format(
+                            MIN_WIDTH, MAX_HEIGHT
+                        )
+                    ),
+                )
+            if width * height > MAX_MP:
+                return procedure.new_return_values(
+                    Gimp.PDBStatusType.CALLING_ERROR,
+                    GLib.Error(
+                        _(
+                            "Please resize your image to make sure width * height is lower than 4MP ({})"
+                        ).format(MAX_MP)
                     ),
                 )
             image = Gimp.Image.new(width, height, Gimp.ImageBaseType.RGB)
@@ -1359,8 +1679,10 @@ class StableDiffusion(Gimp.PlugIn):
                 0.0,
                 Gimp.LayerMode.NORMAL,
             )
+            image.insert_layer(layer, None, 0)
             drawables = [layer]
             Gimp.Display.new(image)
+            created_image = True
 
         model = config.get_property("model")
         mode = config.get_property("prompt-type")
@@ -1381,9 +1703,28 @@ class StableDiffusion(Gimp.PlugIn):
             or image_height < MIN_HEIGHT
             or image_height > MAX_HEIGHT
         ):
+            if created_image:
+                image.delete()
+                Gimp.displays_flush()
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
-                GLib.Error(_("Your image needs to be between 384x384 and 1024x1024.")),
+                GLib.Error(
+                    _("The length of each side must be between {} and {}").format(
+                        MIN_WIDTH, MAX_HEIGHT
+                    )
+                ),
+            )
+        if image_width * image_height > MAX_MP:
+            if created_image:
+                image.delete()
+                Gimp.displays_flush()
+            return procedure.new_return_values(
+                Gimp.PDBStatusType.CALLING_ERROR,
+                GLib.Error(
+                    _(
+                        "Please resize your image to make sure width * height is lower than 4MP ({})"
+                    ).format(MAX_MP)
+                ),
             )
 
         if mode == "MODE_INPAINTING" and drawables[0].has_alpha == 0:
@@ -1418,6 +1759,7 @@ class StableDiffusion(Gimp.PlugIn):
         self.bridge: GimpUtilitiesBridge = GimpUtilitiesBridge(
             procedure, Gimp.version()
         )
+        print(self.bridge.base_info)
         show_debugging_data(self.bridge.base_info)
         sh_client = StableHordeClient(options, self.bridge.base_info, self.bridge)
         Gimp.progress_init(_("Stable Horde work"))
@@ -1425,6 +1767,40 @@ class StableDiffusion(Gimp.PlugIn):
             images_names = sh_client.generate_image(options)
         except Exception as ex:
             show_debugging_data(ex)
+            url_data = self.bridge.get_generated_image_url_status()
+            if url_data:
+                font = Gimp.Font.get_by_name("Monospace")
+                # We try to offer some relief, for the user to still download the image
+                if font is None:
+                    font = Gimp.fonts_get_list()[0]
+                text_layer = Gimp.TextLayer.new(
+                    image,
+                    url_data[2],
+                    font,
+                    10,
+                    Gimp.Unit.pixel(),
+                )
+                text_layer.set_name(url_data[0])
+                image.insert_layer(text_layer, None, 0)
+                Gimp.displays_flush()
+
+                message = (
+                    _(
+                        "It will take too long, You can continue with your activities while the Horde works."
+                    )
+                    + "\n  "
+                    + url_data[2]
+                    + "\n"
+                    + str(ex)
+                )
+                return procedure.new_return_values(
+                    Gimp.PDBStatusType.CALLING_ERROR,
+                    GLib.Error(message),
+                )
+
+            elif created_image:
+                image.delete()
+                Gimp.displays_flush()
             return procedure.new_return_values(
                 Gimp.PDBStatusType.CALLING_ERROR,
                 GLib.Error(str(ex)),
@@ -1433,7 +1809,7 @@ class StableDiffusion(Gimp.PlugIn):
         self.display_generated(image, images_names, model)
         message = "The task was succesful"
 
-        new_choices = sh_client.settings.get("local_settings", [])
+        new_choices = sh_client.settings.get("local_settings", {})
         show_debugging_data(new_choices)
         self.procedures[procedure_name].update_choices_into(
             new_choices, self.st_manager
@@ -1486,7 +1862,13 @@ class StableDiffusion(Gimp.PlugIn):
 
 
 class GimpUtilitiesBridge(InformerFrontendInterface):
+    """
+    Helper to allow StableHordeClient to give back information to the UI
+    """
+
     def __init__(self, procedure: Gimp.ImageProcedure, gimp_version: str):
+        super().__init__()
+
         self.procedure = procedure
         self.base_info = "-_".join(
             [
@@ -1498,6 +1880,9 @@ class GimpUtilitiesBridge(InformerFrontendInterface):
                 platform.machine(),
             ]
         )
+        """
+        Full name of the StableHorde client
+        """
 
         self.append_warning: str = ""
         self.append_success_message: str = ""
@@ -1543,9 +1928,16 @@ Gimp.main(StableDiffusion.__gtype__, sys.argv)
 # * [X] Also inpainting models
 # * [X] Update translations
 # * [X] Try async with downlading
-# * [ ] Port back to LibreOffice
+# * [X] Port back to LibreOffice
 # * [X] Improve the ticking in the bar
-# * [ ] Maybe show warnings
+# * [X] Incorporate strings from Efreak
+# * [X] Handle Warnings
+# * [X] report the plugin name first
+# * [X] Localize latest improvements
+# * [X] Add TextLayer telling the URL of the expected
+#   image with a time to review the image generation
+# * [ ] Make sure initial conservative defaults
+# * [ ] Add styles for apikey users
 # * [ ] Add a transparent text layer with the information that generated the image:
 #    - Prompt, steps, model, and any other information on the invocation.
 # * [ ] Use annotations
@@ -1554,3 +1946,5 @@ Gimp.main(StableDiffusion.__gtype__, sys.argv)
 #      - Send to process as inpaint
 # * [ ] Upscale image locally: Use Image, Scale Image Interpolation Lohab
 # cd po && xgettext -o gimp-stable-diffusion.pot --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=.. gimp-stable-diffusion.py && cd ..
+#
+#

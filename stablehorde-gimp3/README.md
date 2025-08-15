@@ -53,6 +53,7 @@ don't see this, something went wrong. Please check in this case
 [Troubleshooting/GIMP](#gimp-1) for possible solutions. The menu has one item
 `Stable Horde` with three submenus.  You can start creating images
 right away.
+
 <img width="1366" height="768" alt="screenshot-2025-08-05-195704" src="https://github.com/user-attachments/assets/81b23599-ef36-46c7-92ab-7038989cdcea" />
 
 
@@ -140,6 +141,7 @@ request is added to queue. You can see the queue position and the
 remaining wait time in the status bar of the dialog. When the image
 has been generated successfully, it will be shown as a new image in
 GIMP. The used seed is shown at the top left in an additional layer.
+
 <img width="1366" height="768" alt="screenshot-2025-08-05-195902" src="https://github.com/user-attachments/assets/964e5181-e410-40e4-9c17-f738449985b1" />
 
 ## Inpainting
@@ -175,6 +177,28 @@ prompts nor your generated images are private.
 - **Features:** Currently text2img, img2img and inpainting are
 supported. As soon as StableHorde supports outpainting, this will be
 available in the plugin too.
+
+### Timeouts
+
+Sometimes when images are taking too long to be generated and they are
+in process with the workers, the plugin will tell you that the timeout
+setting has been reached or will be reached given that you are in a
+queue and the expected time is long.
+
+The popup will give you an address to visit, also you will have a
+[textlayer](https://docs.gimp.org/3.0/en/gimp-image-text-management.html)
+whose name is a URL that you can use with your browser to checkout
+the status of the process and eventually, when you visit the url,
+inside it there can be one or more urls that you can follow to reach
+the image, it can be saved as a
+[webp image](https://en.wikipedia.org/wiki/WebP) and opened in Gimp,
+libreoffice or the one that suit your needs.
+
+If there is not a TextLayer, is because Gimp already has the image or
+maybe it was not possible to generate the desired image. With an
+[API Key](https://aihorde.net/register) there are more chances to get
+an image generated than without having one, and with
+[more kudos](https://aihorde.net/faq), more priority.
 
 ## Troubleshooting
 ### GIMP
@@ -223,6 +247,10 @@ a new issue in this repository.
 
 **Where is the scaler that was in Gimp2 series?** It's possible to
 use the key `/` and look for Scale Image, choose Interpolation: LoHalo.
+
+## Contributing
+
+[docs/CONTRIBUTING.md] holds the detail on how to improve the plugin.
 
 ## Internals
 

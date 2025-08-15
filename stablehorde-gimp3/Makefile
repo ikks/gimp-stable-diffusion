@@ -7,17 +7,35 @@
 EXEC=gimp-stable-diffusion
 LANG=es
 INSTALL_DIR=~/.config/GIMP/3.0/plug-ins
+PO_FILES := $(wildcard po/*.po)
+MO_FILES := $(subst .po,/LC_MESSAGES/$(EXEC).mo, $(subst po/,locale/,$(PO_FILES)))
 
-all: locale/$(LANG)/LC_MESSAGES/$(EXEC).mo
+all: $(EXEC).zip
 
-locale/$(LANG)/LC_MESSAGES/$(EXEC).mo: po/$(LANG).po
+locale/%/LC_MESSAGES/$(EXEC).mo: po/%.po po/$(EXEC).pot
+	mkdir -p $(dir $@)
 	msgfmt --output-file=$@ $<
 
 po/$(LANG).po: po/$(EXEC).pot
 	msgmerge --update $@ $<
 
 po/$(EXEC).pot: $(EXEC).py
-	xgettext -o po/$(EXEC).pot --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=. gimp-stable-diffusion.py
+	xgettext -o $@ --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=. $<
+
+$(EXEC).zip: $(EXEC).py
+	zip -r $(EXEC).zip $(EXEC)
+
+clean:
+	rm -rf  locale/ po/*~ $(EXEC).zip
+
+initlang:
+	msginit --input=po/gimp-stable-diffusion.pot --locale=$(LANG) --output=po/$(LANG).po
+
+install:
+	mkdir -p $(INSTALL_DIR)/$(EXEC)/locale
+	cp -rf locale/* $(INSTALL_DIR)/$(EXEC)/locale
+	cp $(EXEC).py $(INSTALL_DIR)/$(EXEC)
+	chmod +x $(INSTALL_DIR)/$(EXEC)/$(EXEC).py
 
 publish:
 	mkdir -p $(EXEC)
@@ -25,22 +43,11 @@ publish:
 	zip -r $(EXEC).zip $(EXEC)
 	scripts/publish
 
-clean:
-	@rm -rf  locale/$(LANG)/LC_MESSAGES/$(EXEC).mo po/*~ $(EXEC)
+update_translations:
+	make po/$(EXEC).pot
+	for file in $(MO_FILES); do make $$file; done 
 
-structure:
-	mkdir -p po locale/$(LANG)/LC_MESSAGES
-
-initlang:
-	msginit --input=po/gimp-stable-diffusion.pot --locale=$(LANG) --output=po/$(LANG).po
-
-install:
-	mkdir -p $(INSTALL_DIR)/$(EXEC)/locale/$(LANG)/LC_MESSAGES/
-	cp locale/$(LANG)/LC_MESSAGES/$(EXEC).mo $(INSTALL_DIR)/$(EXEC)/locale/es/LC_MESSAGES
-	cp $(EXEC).py $(INSTALL_DIR)/$(EXEC)
-	chmod +x $(INSTALL_DIR)/$(EXEC)/$(EXEC).py
-
-.PHONY: clean structure
+.PHONY: clean initlang install publish
 
 # Gimp plugin locale structure is
 # ├── locale
