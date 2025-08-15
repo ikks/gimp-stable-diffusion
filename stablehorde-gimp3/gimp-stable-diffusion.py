@@ -23,6 +23,7 @@ import logging
 import math
 import os
 import platform
+import ssl
 import sys
 import tempfile
 import time
@@ -49,8 +50,8 @@ from gi.repository import GObject  # noqa: E402
 from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = "3.1"
-DEBUG = False
+VERSION = "3.1.1"
+DEBUG = True
 LOGGING_LEVEL = logging.DEBUG
 
 log_file = os.path.join(tempfile.gettempdir(), "gimp-stable-diffusion.log")
@@ -421,7 +422,11 @@ class StableHordeClient:
         show_debugging_data(dt)
 
     def __url_open__(
-        self, url: str | Request, timeout: float = 10, refresh_each: float = 0.5
+        self,
+        url: str | Request,
+        timeout: float = 10,
+        refresh_each: float = 0.5,
+        only_read=False,
     ) -> None:
         """
         Opens a url request async with standard urllib, taking into account
@@ -439,12 +444,33 @@ class StableHordeClient:
         Stores the result in self.response_data
         """
 
+        def windowspython_nossl():
+            context = ssl._create_unverified_context()
+            if only_read:
+                with urlopen(url, timeout=timeout, context=context) as response:
+                    show_debugging_data("windows working")
+                    self.response_data = response.read()
+            else:
+                with urlopen(url, timeout=timeout, context=context) as response:
+                    show_debugging_data("Data arrived")
+                    self.response_data = json.loads(response.read().decode("utf-8"))
+
         def real_url_open():
             show_debugging_data(f"starting request {url}")
             try:
-                with urlopen(url, timeout=timeout) as response:
-                    show_debugging_data("Data arrived")
-                    self.response_data = json.loads(response.read().decode("utf-8"))
+                if os.name == "nt":
+                    windowspython_nossl()
+                else:
+                    if only_read:
+                        with urlopen(url, timeout=timeout) as response:
+                            show_debugging_data("Data arrived")
+                            self.response_data = response.read()
+                    else:
+                        with urlopen(url, timeout=timeout) as response:
+                            show_debugging_data("Data arrived")
+                            self.response_data = json.loads(
+                                response.read().decode("utf-8")
+                            )
             except Exception as ex:
                 show_debugging_data(ex)
                 self.timeout = ex
@@ -491,6 +517,7 @@ class StableHordeClient:
         self.finished_task = False
         running_python_version = [int(i) for i in sys.version.split()[0].split(".")]
         self.timeout = False
+        self.response_data = None
         if running_python_version >= [3, 9]:
             asyncio.run(requester_with_counter())
         elif running_python_version >= [3, 7]:
@@ -500,7 +527,23 @@ class StableHordeClient:
         else:
             # Falling back to urllib, user experience will be uglier
             # when waiting...
-            urlopen(url, timeout)
+            try:
+                if os.name == "nt":
+                    windowspython_nossl()
+                else:
+                    if only_read:
+                        with urlopen(url, timeout=timeout) as response:
+                            show_debugging_data("Data arrived")
+                            self.response_data = response.read()
+                    else:
+                        with urlopen(url, timeout=timeout) as response:
+                            show_debugging_data("Data arrived")
+                            self.response_data = json.loads(
+                                response.read().decode("utf-8")
+                            )
+            except Exception as ex:
+                show_debugging_data(ex)
+                self.timeout = ex
             self.finished_task = True
 
         if self.timeout:
@@ -833,6 +876,7 @@ class StableHordeClient:
         When no success, returns [].  raises exceptions, but tries to
         offer helpful messages
         """
+        images_names = []
         self.stage = "Nothing"
         self.settings.update(options)
         self.api_key = options["api_key"]
@@ -857,7 +901,6 @@ class StableHordeClient:
                 "steps": int(options["steps"]),
                 "seed": options["seed"],
             }
-
             restrictions = self.__get_model_requirements__(options["model"])
             params.update(restrictions)
 
@@ -979,22 +1022,6 @@ class StableHordeClient:
             images = self.__get_images__()
             images_names = self.__get_images_filenames__(images)
 
-        except HTTPError as ex:
-            try:
-                data = ex.read().decode("utf-8")
-                data = json.loads(data)
-                message = data.get("message", str(ex))
-                show_debugging_data(ex)
-            except Exception as ex3:
-                show_debugging_data(ex3)
-                message = str(ex)
-            show_debugging_data(ex, data)
-            self.informer.show_error(_("Stablehorde response: ") + f"'{ message }'.")
-            return ""
-        except URLError as ex:
-            show_debugging_data(ex, data)
-            self.informer.show_error(_("Internet required, check your connection"))
-            return ""
         except IdentifiedError as ex:
             if ex.url:
                 self.informer.show_error(str(ex), url=ex.url)
@@ -1185,8 +1212,8 @@ class StableHordeClient:
                             _("Downloading image") + f" { cont }/{ nimages }"
                         )
                     self.__inform_progress__()
-                    with urlopen(image["img"]) as response:
-                        bytes = response.read()
+                    self.__url_open__(image["img"], only_read=True)
+                    bytes = self.response_data
                 else:
                     show_debugging_data(f"Storing embebed image { cont }")
                     bytes = base64.b64decode(image["img"])
@@ -1371,17 +1398,17 @@ class StableDiffusion(Gimp.PlugIn):
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
         self.t2i.menu_label = _("_Text to Image")
         # TRANSLATORS: Dialog title
-        self.t2i.dialog_title = _("TXT2IMG")
+        self.t2i.dialog_title = _("TXT2IMG") + " - " + VERSION
         self.t2i.dialog_description = _("Generate an image from a text") + "\n"
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
         self.i2i.menu_label = _("_Image to Image")
         # TRANSLATORS: Dialog title
-        self.i2i.dialog_title = _("IMG2IMG")
+        self.i2i.dialog_title = _("IMG2IMG") + " - " + VERSION
         self.i2i.dialog_description = (
             _("Generate a variation of the current image") + "\n"
         )
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-        self.in_paint.menu_label = _("Inpainting")
+        self.in_paint.menu_label = _("Inpainting") + " - " + VERSION
         # TRANSLATORS: Dialog title
         self.in_paint.dialog_title = _("Inpaint Region")
         self.in_paint.dialog_description = (
