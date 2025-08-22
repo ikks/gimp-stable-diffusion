@@ -6,6 +6,20 @@ This plugin has a version for Gimp2.10.X series and Gimp3 series.
 Gimp2 series will not receive more updates, unless a PR is made
 and approved.
 
+## [3.2] - Metadata information
+
+### Added
+
+- Metadata is stored to improve reproducibility and transparency
+
+### Changed
+
+- Python3.8 support is back
+- Visible references from StableHorde to AIHorde
+- Longer time between checking to consume less kudos
+- When an image is censored a message is shown instead of
+  showing an image with this same information 
+
 ## [3.1] - Improved UI messages
 
 ### Added
