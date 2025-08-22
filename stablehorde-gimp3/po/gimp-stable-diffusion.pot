@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-22 15:08-0500\n"
+"POT-Creation-Date: 2025-08-22 15:33-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -336,28 +336,38 @@ msgid ""
 "last)"
 msgstr ""
 
-#: gimp-stable-diffusion.py:1701
+#: gimp-stable-diffusion.py:1617
+msgid "Debug"
+msgstr ""
+
+#: gimp-stable-diffusion.py:1619
+msgid ""
+"Allow to see the Debug messages, launch "
+"place where the logging is shown"
+msgstr ""
+
+#: gimp-stable-diffusion.py:1711
 msgid "Please enter a prompt."
 msgstr ""
 
-#: gimp-stable-diffusion.py:1774
+#: gimp-stable-diffusion.py:1784
 msgid "The length of each side must be between {} and {}"
 msgstr ""
 
-#: gimp-stable-diffusion.py:1787
+#: gimp-stable-diffusion.py:1797
 msgid ""
 "Please resize your image to make sure width * height is lower than 4MP ({})"
 msgstr ""
 
-#: gimp-stable-diffusion.py:1795
+#: gimp-stable-diffusion.py:1805
 msgid "When inpainting, the image must have an alpha channel."
 msgstr ""
 
-#: gimp-stable-diffusion.py:1826
+#: gimp-stable-diffusion.py:1836
 msgid "AI Horde work"
 msgstr ""
 
-#: gimp-stable-diffusion.py:1850
+#: gimp-stable-diffusion.py:1860
 msgid ""
 "It will take too long, You can continue with your activities while the Horde "
 "works."

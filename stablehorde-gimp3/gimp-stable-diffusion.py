@@ -126,7 +126,7 @@ def _(message):
 
 
 def show_debugging_data(information, additional="", important=False):
-    if not DEBUG:
+    if not DEBUG and not isinstance(information, Exception):
         return
 
     dnow = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1612,6 +1612,15 @@ class StableDiffusion(Gimp.PlugIn):
             3,
             GObject.ParamFlags.READWRITE,
         )
+        procedure.add_boolean_argument(
+            "debug",
+            _("Debug"),
+            _(
+                "Allow to see the Debug messages, launch Gimp from a terminal, cmd to see the place where the logging is shown"
+            ),
+            False,
+            GObject.ParamFlags.READWRITE,
+        )
         return procedure
 
     def run(self, procedure, run_mode, image, drawables, config, data):
@@ -1687,12 +1696,17 @@ class StableDiffusion(Gimp.PlugIn):
                     "max-wait-minutes",
                     "seed",
                     "api-key",
+                    "debug",
                 ]
             )
             dialog.fill(controls_to_show)
             if not dialog.run():
                 return procedure.new_return_values(Gimp.PDBStatusType.CANCEL, None)
             dialog.destroy()
+        global DEBUG
+        DEBUG = config.get_property("debug")
+        if DEBUG:
+            print(f"Your log is at {log_file}")
 
         prompt = config.get_property("prompt")
         if prompt == "":
@@ -2016,6 +2030,4 @@ Gimp.main(StableDiffusion.__gtype__, sys.argv)
 #      - Enlarge Image with a given amount, max 1.024, transparent
 #      - Send to process as inpaint
 # * [ ] Upscale image locally: Use Image, Scale Image Interpolation Lohab
-# cd po && xgettext -o gimp-stable-diffusion.pot --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=.. gimp-stable-diffusion.py && cd ..
-#
 #
