@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# Gimp3 plugin for StableHorde
+# Gimp3 plugin for AiHorde
 # Authors:
 #  * blueturtleai <https://github.com/blueturtleai> Original
 #  * binarymass <https://github.com/binarymass>
@@ -16,6 +16,7 @@ import asyncio
 import base64
 import contextvars
 import functools
+import getpass
 import gi
 import json
 import locale
@@ -32,6 +33,8 @@ from datetime import date
 from datetime import datetime
 from pathlib import Path
 from time import sleep
+from typing import Any, Dict, List
+from typing import Union
 from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 
@@ -49,7 +52,7 @@ from gi.repository import GObject  # noqa: E402
 from gi.repository import Gtk  # noqa: E402
 
 
-VERSION = "3.1"
+VERSION = "3.2"
 DEBUG = False
 LOGGING_LEVEL = logging.DEBUG
 
@@ -59,6 +62,8 @@ logging.basicConfig(
     level=LOGGING_LEVEL,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
+METADATA_FOR_GIMP = '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<metadata>\n  <tag name="Exif.GPSInfo.GPSAltitude">0/100</tag>\n  <tag name="Exif.Image.Artist">{user}</tag>\n  <tag name="Exif.Image.BitsPerSample">8 8 8</tag>\n  <tag name="Exif.Image.Copyright">AI Generated, trained with {model_name}</tag>\n  <tag name="Exif.Image.DateTime">2025:08:21 22:02:26</tag>\n  <tag name="Exif.Image.ExifTag">330</tag>\n  <tag name="Exif.Image.GPSTag">348</tag>\n  <tag name="Exif.Image.ImageDescription">{lines_properties}</tag>\n  <tag name="Exif.Image.ImageLength">384</tag>\n  <tag name="Exif.Image.ImageWidth">512</tag>\n  <tag name="Exif.Image.Orientation">1</tag>\n  <tag name="Exif.Image.ResolutionUnit">3</tag>\n  <tag name="Exif.Image.Software">GIMP 3.0.4</tag>\n  <tag name="Exif.Image.XResolution">10748/91</tag>\n  <tag name="Exif.Image.YResolution">10748/91</tag>\n  <tag name="Exif.Photo.ColorSpace">1</tag>\n  <tag name="Exif.Thumbnail.BitsPerSample">8 8 8</tag>\n  <tag name="Exif.Thumbnail.Compression">6</tag>\n  <tag name="Exif.Thumbnail.ImageLength">192</tag>\n  <tag name="Exif.Thumbnail.ImageWidth">256</tag>\n  <tag name="Exif.Thumbnail.JPEGInterchangeFormat">494</tag>\n  <tag name="Exif.Thumbnail.JPEGInterchangeFormatLength">8539</tag>\n  <tag name="Exif.Thumbnail.NewSubfileType">1</tag>\n  <tag name="Exif.Thumbnail.PhotometricInterpretation">6</tag>\n  <tag name="Exif.Thumbnail.SamplesPerPixel">3</tag>\n  <namespace prefix="DICOM" url="http://ns.adobe.com/DICOM/"></namespace>\n  <tag name="Xmp.DICOM.PatientSex">female</tag>\n  <namespace prefix="GIMP" url="http://www.gimp.org/xmp/"></namespace>\n  <tag name="Xmp.GIMP.API">3.0</tag>\n  <tag name="Xmp.GIMP.Platform">Linux</tag>\n  <tag name="Xmp.GIMP.TimeStamp">1755831790611856</tag>\n  <tag name="Xmp.GIMP.Version">3.0.4</tag>\n  <namespace prefix="dc" url="http://purl.org/dc/elements/1.1/"></namespace>\n  <tag name="Xmp.dc.Format">image/png</tag>\n  <tag name="Xmp.dc.creator">{user}</tag>\n  <tag name="Xmp.dc.description">lang=&quot;x-default&quot; {lines_properties}</tag>\n  <tag name="Xmp.dc.rights">lang=&quot;x-default&quot; AI Generated</tag>\n  <tag name="Xmp.dc.subject">AI Generated; {model_name}; {plugin_name}</tag>\n  <tag name="Xmp.dc.title">lang=&quot;x-default&quot; {prompt}</tag>\n  <namespace prefix="iptc" url="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"></namespace>\n  <tag name="Xmp.iptc.CiUrlWork">https://aihorde.net</tag>\n  <namespace prefix="Iptc4xmpCore" url="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"></namespace>\n  <tag name="Xmp.iptc.CreatorContactInfo/Iptc4xmpCore:CiUrlWork">https://aihorde.net</tag>\n  <namespace prefix="photoshop" url="http://ns.adobe.com/photoshop/1.0/"></namespace>\n  <tag name="Xmp.photoshop.AuthorsPosition">{prompt} by {model_name}</tag>\n  <tag name="Xmp.photoshop.CaptionWriter">{plugin_name} {plugin_version}</tag>\n  <tag name="Xmp.photoshop.Category">AI generated</tag>\n  <tag name="Xmp.photoshop.SupplementalCategories">{model_name}</tag>\n  <namespace prefix="tiff" url="http://ns.adobe.com/tiff/1.0/"></namespace>\n  <tag name="Xmp.tiff.Orientation">1</tag>\n  <namespace prefix="xmp" url="http://ns.adobe.com/xap/1.0/"></namespace>\n  <tag name="Xmp.xmp.CreatorTool">GIMP</tag>\n  <tag name="Xmp.xmp.MetadataDate">2025:08:21T22:02:26-05:00</tag>\n  <tag name="Xmp.xmp.ModifyDate">2025:08:21T22:02:26-05:00</tag>\n  <namespace prefix="xmpMM" url="http://ns.adobe.com/xap/1.0/mm/"></namespace>\n  <tag name="Xmp.xmpMM.DocumentID">gimp:docid:gimp:6ca2d23c-d9f4-48a7-92ba-4708c927aa67</tag>\n  <namespace prefix="stEvt" url="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"></namespace>\n  <tag name="Xmp.xmpMM.History[1]/stEvt:action">saved</tag>\n  <tag name="Xmp.xmpMM.History[1]/stEvt:changed">/metadata</tag>\n  <tag name="Xmp.xmpMM.History[1]/stEvt:instanceID">xmp.iid:9653e42d-8f45-4a47-a7b9-0c2efa4d2333</tag>\n  <tag name="Xmp.xmpMM.History[1]/stEvt:softwareAgent">GIMP 3.0.4 (Linux)</tag>\n  <tag name="Xmp.xmpMM.History[1]/stEvt:when">2025-08-21T22:01:52-05:00</tag>\n  <tag name="Xmp.xmpMM.History[2]/stEvt:action">saved</tag>\n  <tag name="Xmp.xmpMM.History[2]/stEvt:changed">/</tag>\n  <tag name="Xmp.xmpMM.History[2]/stEvt:instanceID">xmp.iid:9b95539b-cd16-43d3-8b88-18669aef2c34</tag>\n  <tag name="Xmp.xmpMM.History[2]/stEvt:softwareAgent">GIMP 3.0.4 (Linux)</tag>\n  <tag name="Xmp.xmpMM.History[2]/stEvt:when">2025-08-21T22:03:10-05:00</tag>\n  <tag name="Xmp.xmpMM.History[3]/stEvt:action">saved</tag>\n  <tag name="Xmp.xmpMM.History[3]/stEvt:changed">/metadata</tag>\n  <tag name="Xmp.xmpMM.History[3]/stEvt:instanceID">xmp.iid:57ee7bb5-1065-4a9f-8a8b-741f345b7f22</tag>\n  <tag name="Xmp.xmpMM.History[3]/stEvt:softwareAgent">GIMP 3.0.4 (Linux)</tag>\n  <tag name="Xmp.xmpMM.History[3]/stEvt:when">2025-08-22T00:07:07-05:00</tag>\n  <tag name="Xmp.xmpMM.InstanceID">xmp.iid:b2eda0c9-92af-4656-8f09-1d6232159b0e</tag>\n  <tag name="Xmp.xmpMM.OriginalDocumentID">xmp.did:e91842a7-0bbd-4853-9a81-cb0113e4a48a</tag>\n  <namespace prefix="xmpRights" url="http://ns.adobe.com/xap/1.0/rights/"></namespace>\n  <tag name="Xmp.xmpRights.Marked">False</tag>\n  <tag name="Iptc.Application2.Byline">{user}</tag>\n  <tag name="Iptc.Application2.BylineTitle">{prompt} by {model_name}</tag>\n  <tag name="Iptc.Application2.Caption">{lines_properties}</tag>\n  <tag name="Iptc.Application2.Category">AI generated</tag>\n  <tag name="Iptc.Application2.Copyright">AI Generated, trained with {model_name}</tag>\n  <tag name="Iptc.Application2.Keywords">AI Generated; {model_name}; {plugin_name}</tag>\n  <tag name="Iptc.Application2.ObjectName">{prompt}</tag>\n  <tag name="Iptc.Application2.SuppCategory">{model_name}</tag>\n  <tag name="Iptc.Application2.Writer">{plugin_name} {plugin_version}</tag>\n</metadata>\n'
 
 HELP_URL = "https://aihorde.net/faq"
 """
@@ -72,23 +77,21 @@ Latest version for the extension
 
 PROPERTY_CURRENT_SESSION = "py3-stablehorde-checked-update"
 
-URL_DOWNLOAD = (
-    "https://github.com/ikks/libreoffice-stable-diffusion/blob/main/loshd.oxt"
-)
+URL_DOWNLOAD = "https://github.com/ikks/gimp-stable-diffusion/releases"
 """
-Download URL for libreoffice-stable-diffusion
+Download URL for gimp-stable-diffusion
 """
 
-HORDE_CLIENT_NAME = "StableHordeForGimp"
+HORDE_CLIENT_NAME = "AiHordeForGimp"
 """
 Name of the client sent to API
 """
 
-API_ROOT = "https://stablehorde.net/api/v2/"
-REGISTER_STABLE_HORDE_URL = "https://aihorde.net/register"
+API_ROOT = "https://aihorde.net/api/v2/"
+REGISTER_AI_HORDE_URL = "https://aihorde.net/register"
 REGISTER_URL = "https://aihorde.net/register"
 
-PLUGIN_DESCRIPTION = """Stable Diffusion mixes are powered by https://stablehorde.net/ ,
+PLUGIN_DESCRIPTION = """Stable Diffusion mixes are powered by https://aihorde.net/ ,
 join, get an API key, earn kudos and create more.  You need Internet to make use
 of this plugin.  You can use the power of other GPUs worlwide and help with yours
 aswell.  An AI plugin for Gimp that just works. This plugin requires Python3.9
@@ -108,7 +111,7 @@ INIT_FILE = "init.png"
 GENERATED_FILE = "stablehorde-generated.png"
 ANONYMOUS_KEY = "0000000000"
 # check between 5 and 15 seconds
-CHECK_WAIT = 5
+CHECK_WAIT = 8
 MAX_TIME_REFRESH = 15
 
 init_file = r"{}".format(os.path.join(tempfile.gettempdir(), INIT_FILE))
@@ -180,7 +183,7 @@ MODELS = [
     "stable_diffusion",
 ]
 """
-Initial list of models, new ones are downloaded from StableHorde API
+Initial list of models, new ones are downloaded from AiHorde API
 """
 
 INPAINT_MODELS = [
@@ -192,7 +195,7 @@ INPAINT_MODELS = [
     "stable_diffusion_inpainting",
 ]
 """
-Initial list of inpainting models, new ones are downloaded from StableHorde API
+Initial list of inpainting models, new ones are downloaded from AiHorde API
 """
 
 
@@ -217,8 +220,8 @@ class IdentifiedError(Exception):
 class InformerFrontendInterface(metaclass=abc.ABCMeta):
     """
     Implementing this interface for an application frontend
-    gives StableHordeClient a way to inform progress.  It's
-    expected that StableHordeClient receives as parameter
+    gives AIHordeClient a way to inform progress.  It's
+    expected that AIHordeClient receives as parameter
     an instance of this Interface to be able to send messages
     and updates to the user.
     """
@@ -235,7 +238,7 @@ class InformerFrontendInterface(metaclass=abc.ABCMeta):
             and hasattr(subclass, "set_frontend_property")
             and callable(subclass.set_frontend_property)
             and hasattr(subclass, "update_status")
-            and callable(subclass.set_frontend_property)
+            and callable(subclass.update_status)
             and hasattr(subclass, "set_finished")
             and callable(subclass.set_finished)
             and hasattr(subclass, "path_store_directory")
@@ -271,7 +274,7 @@ class InformerFrontendInterface(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractclassmethod
-    def get_frontend_property(self, property_name: str) -> str | bool | None:
+    def get_frontend_property(self, property_name: str) -> Union[str, bool, None]:
         """
         Gets a property from the frontend application, used to retrieved stored
         information during this session.  Used when checking for update.
@@ -279,7 +282,7 @@ class InformerFrontendInterface(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractclassmethod
-    def set_frontend_property(self, property_name: str, value: str | bool):
+    def set_frontend_property(self, property_name: str, value: Union[str, bool]):
         """
         Sets a property in the frontend application, used to retrieved stored
         information during this session.  Used when checking for update.
@@ -310,7 +313,7 @@ class InformerFrontendInterface(metaclass=abc.ABCMeta):
 
     def set_generated_image_url_status(self, url: str, valid_to: int) -> None:
         """
-        Expected to be invoked from StableHordeClient to store the
+        Expected to be invoked from AiHordeClient to store the
 
         * URL of the image being generated and the timestamp for validity and
         * the time when the image is expected to be generated in seconds.
@@ -347,9 +350,9 @@ class InformerFrontendInterface(metaclass=abc.ABCMeta):
         )
 
 
-class StableHordeClient:
+class AiHordeClient:
     """
-    Interaction with Stable Horde platform, currently supports:
+    Interaction with AI Horde platform, currently supports:
     * Fetch the most used models in the month
     * Review the credits of an api_key
     * Request an image async and go all the way down until getting the image
@@ -390,8 +393,8 @@ class StableHordeClient:
         informer: InformerFrontendInterface = None,
     ):
         """
-        Creates a Stable Horde client with the settings, if None, the API_KEY is
-        set to ANONYMOUS, the name to identify the client to Stable Horde and
+        Creates a AI Horde client with the settings, if None, the API_KEY is
+        set to ANONYMOUS, the name to identify the client to AI Horde and
         a reference of an obect that allows the client to send messages to the
         user.
         """
@@ -411,17 +414,22 @@ class StableHordeClient:
         self.informer: InformerFrontendInterface = informer
         self.progress: float = 0.0
         self.progress_text: str = _("Starting...")
-        self.warnings: list[json] = []
+        self.warnings: List[Dict[str, Any]] = []
 
         # Sync informer and async request
         self.finished_task: bool = True
+        self.censored: bool = False
         dt = self.headers.copy()
         del dt["apikey"]
         # Beware, not logging the api_key
         show_debugging_data(dt)
 
     def __url_open__(
-        self, url: str | Request, timeout: float = 10, refresh_each: float = 0.5
+        self,
+        url: Union[str, Request],
+        timeout: float = 10,
+        refresh_each: float = 0.5,
+        only_read=False,
     ) -> None:
         """
         Opens a url request async with standard urllib, taking into account
@@ -444,7 +452,10 @@ class StableHordeClient:
             try:
                 with urlopen(url, timeout=timeout) as response:
                     show_debugging_data("Data arrived")
-                    self.response_data = json.loads(response.read().decode("utf-8"))
+                    if only_read:
+                        self.response_data = response.read()
+                    else:
+                        self.response_data = json.loads(response.read().decode("utf-8"))
             except Exception as ex:
                 show_debugging_data(ex)
                 self.timeout = ex
@@ -491,6 +502,7 @@ class StableHordeClient:
         self.finished_task = False
         running_python_version = [int(i) for i in sys.version.split()[0].split(".")]
         self.timeout = False
+        self.response_data = None
         if running_python_version >= [3, 9]:
             asyncio.run(requester_with_counter())
         elif running_python_version >= [3, 7]:
@@ -662,7 +674,7 @@ class StableHordeClient:
         days_updated = (
             today - date(*[int(i) for i in previous_update.split("-")])
         ).days
-        if days_updated < StableHordeClient.MAX_DAYS_MODEL_UPDATE:
+        if days_updated < AiHordeClient.MAX_DAYS_MODEL_UPDATE:
             show_debugging_data(f"No need to update models {previous_update}")
             return
 
@@ -700,14 +712,14 @@ class StableHordeClient:
                 (key, val)
                 for key, val in popular_models
                 if key.lower().count("inpaint") > 0
-            ][: StableHordeClient.MAX_MODELS_LIST]
+            ][: AiHordeClient.MAX_MODELS_LIST]
             default_models = INPAINT_MODELS
         else:
             popular_models = [
                 (key, val)
                 for key, val in popular_models
                 if key.lower().count("inpaint") == 0
-            ][: StableHordeClient.MAX_MODELS_LIST]
+            ][: AiHordeClient.MAX_MODELS_LIST]
 
         fetched_models = [model[0] for model in popular_models]
         default_model = self.settings.get("default_model", DEFAULT_MODEL)
@@ -721,17 +733,19 @@ class StableHordeClient:
                 locals["models"] = sorted(fetched_models, key=lambda c: c.upper())
                 size_models = len(new_models)
                 if size_models == 1:
-                    message = _("We have a new model:") + "\n\n * " + new_models[0]
+                    message = (
+                        _("We have a new model:") + "\n\n * " + next(iter(new_models))
+                    )
                 else:
                     if size_models > 10:
                         message = (
-                            _("We have {size_models} new models, including:")
+                            _("We have {} new models, including:").format(size_models)
                             + "\n * "
                             + "\n * ".join(list(new_models)[:10])
                         )
                     else:
                         message = (
-                            _("We have {size_models} new models:")
+                            _("We have {} new models:").format(size_models)
                             + "\n * "
                             + "\n * ".join(list(new_models)[:10])
                         )
@@ -800,12 +814,12 @@ class StableHordeClient:
 
     def get_balance(self) -> str:
         """
-        Given an Stable Horde token, present in the attribute api_key,
+        Given an AI Horde token, present in the attribute api_key,
         returns the balance for the account. If happens to be an
         anonymous account, invites to register
         """
         if self.api_key == ANONYMOUS:
-            return _("Register at ") + REGISTER_STABLE_HORDE_URL
+            return _("Register at ") + REGISTER_AI_HORDE_URL
         url = API_ROOT + "find_user"
         request = Request(url, headers=self.headers)
         try:
@@ -821,7 +835,7 @@ class StableHordeClient:
         """
         options have been prefilled for the selected model
         informer will be acknowledged on the process via show_progress
-        Executes the flow to get an image from Stable Horde
+        Executes the flow to get an image from AI Horde
 
         1. Invokes endpoint to launch a work for image generation
         2. Reviews the status of the work
@@ -833,14 +847,13 @@ class StableHordeClient:
         When no success, returns [].  raises exceptions, but tries to
         offer helpful messages
         """
+        images_names = []
         self.stage = "Nothing"
         self.settings.update(options)
         self.api_key = options["api_key"]
         self.headers["apikey"] = self.api_key
         self.check_counter = 1
-        self.check_max = (
-            options["max_wait_minutes"] * 60
-        ) / StableHordeClient.CHECK_WAIT
+        self.check_max = (options["max_wait_minutes"] * 60) / AiHordeClient.CHECK_WAIT
         # Id assigned when requesting the generation of an image
         self.id = ""
 
@@ -934,6 +947,12 @@ class StableHordeClient:
                 self.progress_text = text
                 self.__inform_progress__()
                 self.id = data["id"]
+            except TimeoutError as ex:
+                message = _(
+                    "When trying to ask for the image, the Horde was too slow, try again later"
+                )
+                show_debugging_data(ex)
+                raise IdentifiedError(message)
             except HTTPError as ex:
                 try:
                     data = ex.read().decode("utf-8")
@@ -943,9 +962,9 @@ class StableHordeClient:
                         if self.api_key == ANONYMOUS:
                             message = (
                                 _(
-                                    "Register at {} and use your key to improve your rate success. Detail:"
-                                ).format(REGISTER_STABLE_HORDE_URL)
-                                + f"\n\n { message }."
+                                    f"Register at { REGISTER_AI_HORDE_URL  } and use your key to improve your rate success. Detail:"
+                                )
+                                + f" { message }."
                             )
                         else:
                             message = (
@@ -957,10 +976,8 @@ class StableHordeClient:
                     show_debugging_data(ex2, "No way to recover error msg")
                     message = str(ex)
                 show_debugging_data(message, data)
-                if self.api_key == ANONYMOUS and REGISTER_STABLE_HORDE_URL in message:
-                    self.informer.show_error(
-                        f"{ message }", url=REGISTER_STABLE_HORDE_URL
-                    )
+                if self.api_key == ANONYMOUS and REGISTER_AI_HORDE_URL in message:
+                    self.informer.show_error(f"{ message }", url=REGISTER_AI_HORDE_URL)
                 else:
                     self.informer.show_error(f"{ message }")
                 return ""
@@ -979,22 +996,6 @@ class StableHordeClient:
             images = self.__get_images__()
             images_names = self.__get_images_filenames__(images)
 
-        except HTTPError as ex:
-            try:
-                data = ex.read().decode("utf-8")
-                data = json.loads(data)
-                message = data.get("message", str(ex))
-                show_debugging_data(ex)
-            except Exception as ex3:
-                show_debugging_data(ex3)
-                message = str(ex)
-            show_debugging_data(ex, data)
-            self.informer.show_error(_("Stablehorde response: ") + f"'{ message }'.")
-            return ""
-        except URLError as ex:
-            show_debugging_data(ex, data)
-            self.informer.show_error(_("Internet required, check your connection"))
-            return ""
         except IdentifiedError as ex:
             if ex.url:
                 self.informer.show_error(str(ex), url=ex.url)
@@ -1030,7 +1031,7 @@ class StableHordeClient:
 
     def __check_if_ready__(self) -> bool:
         """
-        Queries Stable horde API to check if the requested image has been generated,
+        Queries AI horde API to check if the requested image has been generated,
         returns False if is not ready, otherwise True.
         When the time to get an image has been reached raises an Exception, also
         throws exceptions when there are network problems.
@@ -1084,13 +1085,12 @@ class StableHordeClient:
                 if self.api_key == ANONYMOUS:
                     message = (
                         _("Get a free API Key at ")
-                        + REGISTER_STABLE_HORDE_URL
-                        + ".\n "
+                        + REGISTER_AI_HORDE_URL
                         + _(
-                            "This model takes more time than your current configuration."
+                            ".\n This model takes more time than your current configuration."
                         )
                     )
-                    raise IdentifiedError(message, url=REGISTER_STABLE_HORDE_URL)
+                    raise IdentifiedError(message, url=REGISTER_AI_HORDE_URL)
                 else:
                     message = (
                         _("Please try another model,")
@@ -1105,8 +1105,8 @@ class StableHordeClient:
                 # We still have time to wait, given that the status is processing, we
                 # wait between 5 secs and 15 secs to check again
                 wait_time = min(
-                    max(StableHordeClient.CHECK_WAIT, int(data["wait_time"] / 2)),
-                    StableHordeClient.MAX_TIME_REFRESH,
+                    max(AiHordeClient.CHECK_WAIT, int(data["wait_time"] / 2)),
+                    AiHordeClient.MAX_TIME_REFRESH,
                 )
                 for i in range(1, wait_time * 2):
                     sleep(0.5)
@@ -1124,13 +1124,14 @@ class StableHordeClient:
             if self.api_key == ANONYMOUS:
                 message = (
                     _("Get an Api key for free at ")
-                    + REGISTER_STABLE_HORDE_URL
-                    + ".\n "
-                    + _("This model takes more time than your current configuration.")
+                    + REGISTER_AI_HORDE_URL
+                    + _(
+                        ".\n This model takes more time than your current configuration."
+                    )
                 )
-                raise IdentifiedError(message, url=REGISTER_STABLE_HORDE_URL)
+                raise IdentifiedError(message, url=REGISTER_AI_HORDE_URL)
             else:
-                minutes = (self.check_max * StableHordeClient.CHECK_WAIT) / 60
+                minutes = (self.check_max * AiHordeClient.CHECK_WAIT) / 60
                 show_debugging_data(data)
                 if minutes == 1:
                     raise IdentifiedError(
@@ -1149,7 +1150,7 @@ class StableHordeClient:
 
     def __get_images__(self):
         """
-        At this stage Stable horde has generated the images and it's time
+        At this stage AI horde has generated the images and it's time
         to download them all.
         """
         self.stage = "Getting images"
@@ -1162,7 +1163,7 @@ class StableHordeClient:
 
         return data["generations"]
 
-    def __get_images_filenames__(self, images: list[json]) -> list[str]:
+    def __get_images_filenames__(self, images: List[Dict[str, Any]]) -> List[str]:
         """
         Downloads the generated images and returns the full path of the
         downloaded images.
@@ -1176,6 +1177,14 @@ class StableHordeClient:
             with tempfile.NamedTemporaryFile(
                 "wb+", delete=False, suffix=".webp"
             ) as generated_file:
+                if image["censored"]:
+                    message = f'«{ self.settings["prompt"] }»' + _(
+                        " is censored, try changing the prompt wording"
+                    )
+                    show_debugging_data(message)
+                    self.informer.show_error(message, title="warning")
+                    self.censored = True
+                    break
                 if image["img"].startswith("https"):
                     show_debugging_data(f"Downloading { image['img'] }")
                     if nimages == 1:
@@ -1185,8 +1194,8 @@ class StableHordeClient:
                             _("Downloading image") + f" { cont }/{ nimages }"
                         )
                     self.__inform_progress__()
-                    with urlopen(image["img"]) as response:
-                        bytes = response.read()
+                    self.__url_open__(image["img"], only_read=True)
+                    bytes = self.response_data
                 else:
                     show_debugging_data(f"Storing embebed image { cont }")
                     bytes = base64.b64decode(image["img"])
@@ -1208,6 +1217,59 @@ class StableHordeClient:
             self.warnings = []
         self.refresh_models()
         return generated_filenames
+
+    def get_imagename(self) -> str:
+        """
+        Returns a name for the image, intended to be used as identifier
+        """
+        if "prompt" not in self.settings:
+            return "AIHorde will be invoked and this image will appear"
+        return self.settings["prompt"] + " " + self.settings["model"]
+
+    def get_title(self) -> str:
+        """
+        Intended to be used as the title to offer the user some information
+        """
+        if "prompt" not in self.settings:
+            return "AIHorde will be invoked and this image will appear"
+        return self.settings["prompt"] + _(" generated by ") + "AIHorde"
+
+    def get_tooltip(self) -> str:
+        """
+        Intended for assistive technologies
+        """
+        if "prompt" not in self.settings:
+            return "AIHorde will be invoked and this image will appear"
+        return (
+            self.settings["prompt"]
+            + _(" with ")
+            + self.settings["model"]
+            + _(" generated by ")
+            + "AIHorde"
+        )
+
+    def get_full_description(self) -> str:
+        """
+        Intended for reproducibility
+        """
+        if "prompt" not in self.settings:
+            return "AIhorde shall be working sometime in the future"
+
+        options = [
+            "prompt",
+            "model",
+            "seed",
+            "image_width",
+            "image_height",
+            "prompt_strength",
+            "steps",
+            "nsfw",
+            "censor_nsfw",
+        ]
+
+        result = ["".join((op, " : ", str(self.settings[op]))) for op in options]
+
+        return "\n".join(result)
 
     def get_settings(self) -> json:
         """
@@ -1371,17 +1433,17 @@ class StableDiffusion(Gimp.PlugIn):
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
         self.t2i.menu_label = _("_Text to Image")
         # TRANSLATORS: Dialog title
-        self.t2i.dialog_title = _("TXT2IMG")
+        self.t2i.dialog_title = _("TXT2IMG") + " - " + VERSION
         self.t2i.dialog_description = _("Generate an image from a text") + "\n"
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
         self.i2i.menu_label = _("_Image to Image")
         # TRANSLATORS: Dialog title
-        self.i2i.dialog_title = _("IMG2IMG")
+        self.i2i.dialog_title = _("IMG2IMG") + " - " + VERSION
         self.i2i.dialog_description = (
             _("Generate a variation of the current image") + "\n"
         )
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
-        self.in_paint.menu_label = _("Inpainting")
+        self.in_paint.menu_label = _("Inpainting") + " - " + VERSION
         # TRANSLATORS: Dialog title
         self.in_paint.dialog_title = _("Inpaint Region")
         self.in_paint.dialog_description = (
@@ -1403,7 +1465,7 @@ class StableDiffusion(Gimp.PlugIn):
             )
         procedure.set_menu_label(self.procedures[name].menu_label)
         procedure.set_attribution("ikks", "Igor Támara", "2025")
-        procedure.add_menu_path("<Image>/AI/Stable _Horde")
+        procedure.add_menu_path("<Image>/AI/AI _Horde")
         procedure.set_documentation(
             self.procedures[name].dialog_description,
             PLUGIN_DESCRIPTION,
@@ -1534,7 +1596,7 @@ class StableDiffusion(Gimp.PlugIn):
             "api-key",
             _("API _key (optional)"),
             _(
-                "Get yours at https://stablehorde.net/ for free. Recommended: Anonymous users are last in the queue"
+                "Get yours at https://aihorde.net/ for free. Recommended: Anonymous users are last in the queue"
             ),
             "",
             GObject.ParamFlags.READWRITE,
@@ -1583,7 +1645,7 @@ class StableDiffusion(Gimp.PlugIn):
             dialog = GimpUi.ProcedureDialog.new(
                 procedure,
                 config,
-                f"Stable Horde - { self.procedures[procedure_name].dialog_title }",
+                f"AI Horde - { self.procedures[procedure_name].dialog_title }",
             )
             dialog.get_widget("prompt-strength", GimpUi.SpinScale.__gtype__)
             dialog.get_widget("nimages", GimpUi.SpinScale.__gtype__)
@@ -1759,10 +1821,9 @@ class StableDiffusion(Gimp.PlugIn):
         self.bridge: GimpUtilitiesBridge = GimpUtilitiesBridge(
             procedure, Gimp.version()
         )
-        print(self.bridge.base_info)
         show_debugging_data(self.bridge.base_info)
-        sh_client = StableHordeClient(options, self.bridge.base_info, self.bridge)
-        Gimp.progress_init(_("Stable Horde work"))
+        sh_client = AiHordeClient(options, self.bridge.base_info, self.bridge)
+        Gimp.progress_init(_("AI Horde work"))
         try:
             images_names = sh_client.generate_image(options)
         except Exception as ex:
@@ -1807,6 +1868,9 @@ class StableDiffusion(Gimp.PlugIn):
             )
 
         self.display_generated(image, images_names, model)
+
+        self.store_metadata(image, sh_client)
+
         message = "The task was succesful"
 
         new_choices = sh_client.settings.get("local_settings", {})
@@ -1821,6 +1885,22 @@ class StableDiffusion(Gimp.PlugIn):
         return procedure.new_return_values(
             Gimp.PDBStatusType.SUCCESS, GLib.Error(message)
         )
+
+    def store_metadata(self, image: Gimp.Image, sh_client: AiHordeClient) -> None:
+        metadata = METADATA_FOR_GIMP.format(
+            **{
+                "model_name": sh_client.settings["model"],
+                "user": getpass.getuser(),
+                "prompt": sh_client.settings["prompt"],
+                "plugin_name": HORDE_CLIENT_NAME,
+                "plugin_version": VERSION,
+                "lines_properties": sh_client.get_full_description(),
+            }
+        )
+        show_debugging_data(metadata)
+        new_metadata = Gimp.Metadata().deserialize(metadata)
+        show_debugging_data(new_metadata.serialize())
+        image.set_metadata(new_metadata)
 
     def get_image_data(self, image: Gimp.Image) -> str:
         """
@@ -1863,7 +1943,7 @@ class StableDiffusion(Gimp.PlugIn):
 
 class GimpUtilitiesBridge(InformerFrontendInterface):
     """
-    Helper to allow StableHordeClient to give back information to the UI
+    Helper to allow AiHordeClient to give back information to the UI
     """
 
     def __init__(self, procedure: Gimp.ImageProcedure, gimp_version: str):
@@ -1881,7 +1961,7 @@ class GimpUtilitiesBridge(InformerFrontendInterface):
             ]
         )
         """
-        Full name of the StableHorde client
+        Full name of the AiHorde client
         """
 
         self.append_warning: str = ""
@@ -1905,14 +1985,14 @@ class GimpUtilitiesBridge(InformerFrontendInterface):
         self.append_success_message += "\n " + message
         pass
 
-    def get_frontend_property(self, property_name: str) -> str | bool | None:
+    def get_frontend_property(self, property_name: str) -> Union[str, bool, None]:
         try:
             info = Gimp.get_parasite(property_name).get_data()[0]
             return info
         except AttributeError:
             return None
 
-    def set_frontend_property(self, property_name: str, value: str | bool):
+    def set_frontend_property(self, property_name: str, value: Union[str, bool]):
         Gimp.attach_parasite(Gimp.Parasite.new(property_name, 0, [value]))
 
     def path_store_directory(self) -> str:
@@ -1923,23 +2003,14 @@ Gimp.main(StableDiffusion.__gtype__, sys.argv)
 
 # TBD
 #
-# * [X] Raise exceptions to be able to report errors
-# * [X] Store updated models
-# * [X] Also inpainting models
-# * [X] Update translations
-# * [X] Try async with downlading
-# * [X] Port back to LibreOffice
-# * [X] Improve the ticking in the bar
-# * [X] Incorporate strings from Efreak
-# * [X] Handle Warnings
-# * [X] report the plugin name first
-# * [X] Localize latest improvements
 # * [X] Add TextLayer telling the URL of the expected
 #   image with a time to review the image generation
-# * [ ] Make sure initial conservative defaults
-# * [ ] Add styles for apikey users
+# * [X] Make sure initial conservative defaults
+# * [X] Use metadata to store options
 # * [ ] Add a transparent text layer with the information that generated the image:
 #    - Prompt, steps, model, and any other information on the invocation.
+# * [X] NSFW images are not presented, instead error
+# * [ ] Add styles for apikey users
 # * [ ] Use annotations
 # * [ ] Locally make outpaint Extend to left, bottom, right, top:
 #      - Enlarge Image with a given amount, max 1.024, transparent
