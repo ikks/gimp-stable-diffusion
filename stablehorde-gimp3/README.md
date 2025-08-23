@@ -26,11 +26,7 @@ and scroll down to "folders". Expand "folders" and click on
 "plug-ins". Select the folder which includes your username and open
 your file manager there.
 
-
-
-https://github.com/user-attachments/assets/aec71b81-b410-45e5-9654-294df9dadd84
-
-
+https://github.com/user-attachments/assets/d5498bf1-319a-4014-b1b6-e79aea26fc36
 
 2. Unzip the downloaded file in your `plug-ins` folder. If
 you are on MacOS or Linux, change the file permissions to 764, leave
@@ -162,6 +158,18 @@ For the prompt you use now a description of the new image. For example
 the image shows currently "a little girl running over a meadow with
 a balloon" and you want to replace the balloon by a parachute. You
 just write now "a little girl running over a meadow with a parachute".
+
+## Reproducibility
+
+We store in the metadata the information used to generate the image,
+such as prompt and the other selected values, as the prompt strength,
+looking at the metadata allows to review the latest change made.
+Image > Metadata > View Metadata . The information is saved to the
+metadata when exported to PNG.  Is a good transparency practice state
+in the metadata that AI has been used in the image.
+
+<img width="1366" height="768" alt="imagen" src="https://github.com/user-attachments/assets/511cd0ce-97b4-482a-98d6-01e92ba33aa4" />
+
 
 ## Limitations
 - **Generation speed:** StableHorde is a cluster of stable-diffusion
