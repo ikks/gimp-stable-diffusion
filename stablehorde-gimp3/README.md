@@ -54,7 +54,7 @@ don't see this, something went wrong. Please check in this case
 `Stable Horde` with three submenus.  You can start creating images
 right away.
 
-<img width="1366" height="768" alt="imagen" src="https://github.com/user-attachments/assets/7d3bb65d-f32c-4368-8ed8-2ea4e83f77fc" />
+<img width="1366" height="768" alt="imagen" src="https://github.com/user-attachments/assets/c671baf4-5c48-425a-8234-e7a17891db8b" />
 
 
 
