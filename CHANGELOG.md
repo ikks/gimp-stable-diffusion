@@ -12,6 +12,7 @@ and approved.
 
 - Metadata is stored to improve reproducibility and transparency
 - Debugging can be activated from UI
+- Plugin works on Gimp3 for Windows 
 
 ### Changed
 

@@ -54,7 +54,8 @@ don't see this, something went wrong. Please check in this case
 `Stable Horde` with three submenus.  You can start creating images
 right away.
 
-<img width="1366" height="768" alt="screenshot-2025-08-05-195704" src="https://github.com/user-attachments/assets/81b23599-ef36-46c7-92ab-7038989cdcea" />
+<img width="1366" height="768" alt="imagen" src="https://github.com/user-attachments/assets/7d3bb65d-f32c-4368-8ed8-2ea4e83f77fc" />
+
 
 
 ## Generate images
@@ -142,7 +143,6 @@ remaining wait time in the status bar of the dialog. When the image
 has been generated successfully, it will be shown as a new image in
 GIMP. The used seed is shown at the top left in an additional layer.
 
-<img width="1366" height="768" alt="screenshot-2025-08-05-195902" src="https://github.com/user-attachments/assets/964e5181-e410-40e4-9c17-f738449985b1" />
 
 ## Inpainting
 Inpainting means replacing a part of an existing image. For example if

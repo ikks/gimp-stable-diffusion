@@ -1,0 +1,25 @@
+name: prepare-zip
+run-name: ZIP preparation
+on: [push]
+
+jobs:
+  locales-and-zip:
+     name: Locales and Zip
+     runs-on: ubuntu-latest
+     steps:
+        - uses: actions/checkout@v4
+        - run: sudo apt install -y gettext make zip coreutils
+        - name: Creating zip
+          id: creating_zip
+          run: |
+            cd stablehorde-gimp3
+            make
+            export MD=$(md5sum gimp-stable-diffusion.zip | awk '{print $1}')
+            mkdir ../out
+            echo g-s-$MD.zip
+            mv gimp-stable-diffusion ../out
+            echo "output_zip=g-s-$MD" >> $GITHUB_OUTPUT
+        - uses: actions/upload-artifact@v4
+          with:
+            name: ${{ steps.creating_zip.outputs.output_zip }}
+            path: out

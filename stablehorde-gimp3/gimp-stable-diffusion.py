@@ -24,6 +24,7 @@ import logging
 import math
 import os
 import platform
+import ssl
 import sys
 import tempfile
 import time
@@ -447,15 +448,32 @@ class AiHordeClient:
         Stores the result in self.response_data
         """
 
+        def windowspython_nossl():
+            # https://github.com/ikks/gimp-stable-diffusion/issues/1
+            context = ssl._create_unverified_context()
+            if only_read:
+                with urlopen(url, timeout=timeout, context=context) as response:
+                    show_debugging_data("windows working")
+                    self.response_data = response.read()
+            else:
+                with urlopen(url, timeout=timeout, context=context) as response:
+                    show_debugging_data("Data arrived")
+                    self.response_data = json.loads(response.read().decode("utf-8"))
+
         def real_url_open():
             show_debugging_data(f"starting request {url}")
             try:
-                with urlopen(url, timeout=timeout) as response:
-                    show_debugging_data("Data arrived")
-                    if only_read:
-                        self.response_data = response.read()
-                    else:
-                        self.response_data = json.loads(response.read().decode("utf-8"))
+                if os.name == "nt" and HORDE_CLIENT_NAME == "AiHordeForGimp":
+                    windowspython_nossl()
+                else:
+                    with urlopen(url, timeout=timeout) as response:
+                        show_debugging_data(f"Data arrived from {url}")
+                        if only_read:
+                            self.response_data = response.read()
+                        else:
+                            self.response_data = json.loads(
+                                response.read().decode("utf-8")
+                            )
             except Exception as ex:
                 show_debugging_data(ex)
                 self.timeout = ex
@@ -512,7 +530,21 @@ class AiHordeClient:
         else:
             # Falling back to urllib, user experience will be uglier
             # when waiting...
-            urlopen(url, timeout)
+            try:
+                if os.name == "nt" and HORDE_CLIENT_NAME == "AiHordeForGimp":
+                    windowspython_nossl()
+                else:
+                    with urlopen(url, timeout=timeout) as response:
+                        show_debugging_data(f"Data arrived from {url}")
+                        if only_read:
+                            self.response_data = response.read()
+                        else:
+                            self.response_data = json.loads(
+                                response.read().decode("utf-8")
+                            )
+            except Exception as ex:
+                show_debugging_data(ex)
+                self.timeout = ex
             self.finished_task = True
 
         if self.timeout:
@@ -870,7 +902,6 @@ class AiHordeClient:
                 "steps": int(options["steps"]),
                 "seed": options["seed"],
             }
-
             restrictions = self.__get_model_requirements__(options["model"])
             params.update(restrictions)
 
@@ -1614,11 +1645,11 @@ class StableDiffusion(Gimp.PlugIn):
         )
         procedure.add_boolean_argument(
             "debug",
-            _("Debug"),
+            _("_Debug"),
             _(
                 "Allow to see the Debug messages, launch Gimp from a terminal, cmd to see the place where the logging is shown"
             ),
-            False,
+            DEBUG,
             GObject.ParamFlags.READWRITE,
         )
         return procedure

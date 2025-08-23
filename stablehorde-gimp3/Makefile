@@ -12,42 +12,41 @@ MO_FILES := $(subst .po,/LC_MESSAGES/$(EXEC).mo, $(subst po/,locale/,$(PO_FILES)
 
 all: $(EXEC).zip
 
-locale/%/LC_MESSAGES/$(EXEC).mo: po/%.po po/$(EXEC).pot
+locale/%/LC_MESSAGES/$(EXEC).mo: po/%.po
 	mkdir -p $(dir $@)
 	msgfmt --output-file=$@ $<
 
 po/$(LANG).po: po/$(EXEC).pot
-	msgmerge --update $@ $<
+	msgmerge -q --update $@ $<
 
 po/$(EXEC).pot: $(EXEC).py
 	xgettext -o $@ --add-comments=TRANSLATORS: --keyword=_ --flag=_:1:pass-python-format --directory=. $<
 
-$(EXEC).zip: $(EXEC).py
+$(EXEC).zip: $(EXEC).py $(MO_FILES)
+	mkdir -p $(EXEC)
+	cp -r $(EXEC).py locale $(EXEC)
 	zip -r $(EXEC).zip $(EXEC)
 
 clean:
-	rm -rf  locale/ po/*~ $(EXEC).zip
+	rm -rf  $(MO_FILES) po/*~ po/*bak $(EXEC).zip
 
 initlang:
 	msginit --input=po/gimp-stable-diffusion.pot --locale=$(LANG) --output=po/$(LANG).po
 
-install:
+install: $(MO_FILES)
 	mkdir -p $(INSTALL_DIR)/$(EXEC)/locale
 	cp -rf locale/* $(INSTALL_DIR)/$(EXEC)/locale
 	cp $(EXEC).py $(INSTALL_DIR)/$(EXEC)
 	chmod +x $(INSTALL_DIR)/$(EXEC)/$(EXEC).py
 
-publish:
-	mkdir -p $(EXEC)
-	cp -r $(EXEC).py locale $(EXEC) 
-	zip -r $(EXEC).zip $(EXEC)
+publish: $(EXEC).zip
 	scripts/publish
 
 update_translations:
 	make po/$(EXEC).pot
 	for file in $(MO_FILES); do make $$file; done 
 
-.PHONY: clean initlang install publish
+.PHONY: clean initlang install publish update_translation
 
 # Gimp plugin locale structure is
 # ├── locale
