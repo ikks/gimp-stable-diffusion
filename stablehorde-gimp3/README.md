@@ -36,12 +36,14 @@ You will end up with a structure like:
 
 ```
 plug-ins
-└── gimp-stable-diffusion
-   ├── gimp-stable-diffusion.py
-   └── locale
-       └── es
-           └── LC_MESSAGES
-               └── gimp-stable-diffusion.mo
+├── gimp-stable-diffusion
+│  ├── gimp-stable-diffusion.py
+│  └── locale
+│       └── es
+│           └── LC_MESSAGES
+│               └── gimp-stable-diffusion.mo
+└── module
+   └── aihordeclient.py    
 ```
 
 3. Restart GIMP. You should now see the new menu "AI". If you
@@ -51,8 +53,6 @@ don't see this, something went wrong. Please check in this case
 right away.
 
 <img width="1366" height="768" alt="imagen" src="https://github.com/user-attachments/assets/c671baf4-5c48-425a-8234-e7a17891db8b" />
-
-
 
 ## Generate images
 Now we are ready to generate images.

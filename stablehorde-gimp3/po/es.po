@@ -419,18 +419,3 @@ msgid ""
 "works."
 msgstr ""
 "Tomará mucho tiempo, puede continuar sus actividades mientras Horde trabaja."
-
-#, python-brace-format
-#~ msgid "We have {size_models} new models:"
-#~ msgstr "Tenemos {size_models} nuevos modelos:"
-
-#~ msgid ""
-#~ "Register at {} and use your key to improve your rate success. Detail:"
-#~ msgstr ""
-#~ "Regístrese en {} y use su llave de api para tener más prioridad. Detalle: "
-
-#~ msgid "Stablehorde response: "
-#~ msgstr "Stablehorde dijo: "
-
-#~ msgid "Internet required, check your connection"
-#~ msgstr "Se requiere Internet, verifique su conexión"

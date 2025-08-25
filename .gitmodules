@@ -1,0 +1,3 @@
+[submodule "stablehorde-gimp3/modules/aihordeclient"]
+	path = stablehorde-gimp3/modules/aihordeclient
+	url = https://github.com/ikks/aihordeclient

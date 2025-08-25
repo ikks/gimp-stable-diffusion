@@ -6,6 +6,14 @@ This plugin has a version for Gimp2.10.X series and Gimp3 series.
 Gimp2 series will not receive more updates, unless a PR is made
 and approved.
 
+## [3.3] - Extended time when requesting generation
+
+### Changed
+
+- Now using a submodule for API communication, python3.8 is supported
+- Time extended for image generation, user can still work in other
+  things
+
 ## [3.2] - Metadata information
 
 ### Added
