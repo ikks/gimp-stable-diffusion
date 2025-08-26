@@ -8,6 +8,8 @@ jobs:
      runs-on: ubuntu-latest
      steps:
         - uses: actions/checkout@v4
+          with:
+            submodules: recursive
         - run: sudo apt install -y gettext make zip coreutils
         - name: Creating zip
           id: creating_zip
