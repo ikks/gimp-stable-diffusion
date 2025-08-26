@@ -24,7 +24,26 @@ client is being used for
 * Attribution on metadata is automatically stored when an image is
   generated.
 
-## Gimp3 python console helps to work interactively
+## Working with Gimp3 series plugin
+
+
+To develop the branch 3 series issue
+
+```sh
+git submodule update --init --recursive
+```
+
+### Requisites
+
+Make sure you install `make`, `gimp`, `python`
+
+To test, run `make && make install` and run gimp.
+
+
+### Gimp3 python console helps to work interactively
+
+With / then python console inside gimp, you can open a python3
+interactive console.
 
 To get first image being edited
 
@@ -48,8 +67,7 @@ The documentation is available locally with
 
 ```
 sudo apt install -y libgimp-3.0-doc
-cd /usr/share/doc/libgimp-3.0-doc/reference/gimp-3.0/
-python -m http.server
+cd /usr/share/doc/libgimp-3.0-doc/reference/gimp-3.0/ && python -m http.server
 # visit http://localhost:8000/libgimp-3.0/
 # visit http://localhost:8000/libgimpui-3.0/
 ```

@@ -13,6 +13,7 @@
 
 import base64
 import getpass
+import gettext
 import gi
 import logging
 import os
@@ -38,9 +39,22 @@ from gi.repository import Gtk  # noqa: E402
 
 import_message_error = None
 
+# Change the next line replacing False to True if you need to debug. Case matters
 DEBUG = True
 
-LOGGING_LEVEL = logging.DEBUG
+# Localization helpers
+GETTEXT_DOMAIN = "gimp-stable-diffusion"
+_ = gettext.gettext
+gettext.textdomain(GETTEXT_DOMAIN)
+
+logger = logging.getLogger(__name__)
+LOGGING_LEVEL = logging.ERROR
+script_path = os.path.realpath(__file__)
+if DEBUG:
+    LOGGING_LEVEL = logging.DEBUG
+else:
+    print(_("To enable debugging change DEBUG to True in") + "\n\n " + script_path)
+
 
 log_file = os.path.join(tempfile.gettempdir(), "gimp-stable-diffusion.log")
 logging.basicConfig(
@@ -127,11 +141,6 @@ init_file = r"{}".format(os.path.join(tempfile.gettempdir(), INIT_FILE))
 generated_file = r"{}".format(os.path.join(tempfile.gettempdir(), GENERATED_FILE))
 
 
-# Localization helpers
-def _(message):
-    return GLib.dgettext(None, message)
-
-
 class StableDiffusion(Gimp.PlugIn):
     plug_in_proc_t2i = "ikks-py3-stablehorde-t2i"
     plug_in_proc_i2i = "ikks-py3-stablehorde-i2i"
@@ -165,7 +174,7 @@ class StableDiffusion(Gimp.PlugIn):
         }
         self.plug_in_procs = list(self.procedures.keys())
         if DEBUG:
-            print(f"Your log is at {log_file}")
+            print(_("Your log is at ") + log_file)
         super().__init__(*args, **kwargs)
 
     def do_query_procedures(self) -> list[str]:
@@ -185,6 +194,15 @@ class StableDiffusion(Gimp.PlugIn):
         * INPAINT
 
         """
+
+        def get_locale_dir():
+            locdir = expected_dir / "locale"
+            logger.debug(f"Locales folder: {locdir}")
+
+            return locdir
+
+        gettext.bindtextdomain(GETTEXT_DOMAIN, get_locale_dir())
+
         procedure = None
         self.check_counter = 0
         self.check_max = None
@@ -192,6 +210,10 @@ class StableDiffusion(Gimp.PlugIn):
         logging.debug(self.plug_in_procs)
         if name not in self.plug_in_procs:
             return procedure
+        global DEBUG
+        additional = ""
+        if DEBUG:
+            additional = "\n" + _("Log at: ") + log_file + "\n"
 
         self.st_manager = HordeClientSettings(
             Path(Gimp.cache_directory()) / "ikks-py3-stablehorde"
@@ -201,20 +223,22 @@ class StableDiffusion(Gimp.PlugIn):
         self.t2i.menu_label = _("_Text to Image")
         # TRANSLATORS: Dialog title
         self.t2i.dialog_title = _("TXT2IMG") + " - " + VERSION
-        self.t2i.dialog_description = _("Generate an image from a text") + "\n"
+        self.t2i.dialog_description = (
+            _("Generate an image from a text") + "\n" + additional
+        )
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
         self.i2i.menu_label = _("_Image to Image")
         # TRANSLATORS: Dialog title
         self.i2i.dialog_title = _("IMG2IMG") + " - " + VERSION
         self.i2i.dialog_description = (
-            _("Generate a variation of the current image") + "\n"
+            _("Generate a variation of the current image") + "\n" + additional
         )
         # TRANSLATORS: This is the menu, the _ indicates the fast key in the menu
         self.in_paint.menu_label = _("Inpainting") + " - " + VERSION
         # TRANSLATORS: Dialog title
         self.in_paint.dialog_title = _("Inpaint Region")
         self.in_paint.dialog_description = (
-            _("Replace transparent portion of the image") + "\n"
+            _("Replace transparent portion of the image") + "\n" + additional
         )
         procedure = Gimp.ImageProcedure.new(
             self, name, Gimp.PDBProcType.PLUGIN, self.run, None
@@ -380,12 +404,10 @@ class StableDiffusion(Gimp.PlugIn):
             GObject.ParamFlags.READWRITE,
         )
         procedure.add_boolean_argument(
-            "debug",
-            _("_Debug"),
-            _(
-                "Allow to see the Debug messages, launch Gimp from a terminal, cmd to see the place where the logging is shown"
-            ),
-            DEBUG,
+            "new-image",
+            _("As_ a new image "),
+            _("Create new Image instead of a layer"),
+            False,
             GObject.ParamFlags.READWRITE,
         )
         return procedure
@@ -463,17 +485,18 @@ class StableDiffusion(Gimp.PlugIn):
                     "max-wait-minutes",
                     "seed",
                     "api-key",
-                    "debug",
                 ]
             )
+            if procedure_name == self.plug_in_proc_t2i and image:
+                controls_to_show.append("new-image")
+
             dialog.fill(controls_to_show)
             if not dialog.run():
                 return procedure.new_return_values(Gimp.PDBStatusType.CANCEL, None)
             dialog.destroy()
         global DEBUG
-        DEBUG = config.get_property("debug")
         if DEBUG:
-            print(f"Your log is at {log_file}")
+            print(_("Your log is at ") + log_file)
 
         prompt = config.get_property("prompt")
         if prompt == "":
@@ -483,7 +506,7 @@ class StableDiffusion(Gimp.PlugIn):
             )
 
         source_image = ""
-        if image is not None:
+        if image is not None and not config.get_property("new-image"):
             source_image = self.get_image_data(image)
         elif procedure_name == self.plug_in_proc_t2i:
             width = config.get_property("width")
@@ -671,6 +694,15 @@ class StableDiffusion(Gimp.PlugIn):
         message += self.bridge.append_success_message
         message += self.bridge.append_warning
         logging.debug(message)
+
+        if created_image:
+            layers = [
+                layer
+                for layer in image.get_layers()
+                if layer.get_name() == "background"
+            ]
+            if len(layers):
+                image.remove_layer(layers[0])
         return procedure.new_return_values(
             Gimp.PDBStatusType.SUCCESS, GLib.Error(message)
         )
@@ -764,7 +796,7 @@ class GimpUtilitiesBridge(InformerFrontend):
         Gimp.progress_update(progress / 100.0)
 
     def show_error(self, message, url="", title="", buttons=0):
-        logging.debug(url, title)
+        logging.debug(url + "" + title)
         if title == "warning":
             self.append_warning += "\n " + message
             return

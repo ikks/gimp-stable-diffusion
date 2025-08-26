@@ -6,7 +6,12 @@ This plugin has a version for Gimp2.10.X series and Gimp3 series.
 Gimp2 series will not receive more updates, unless a PR is made
 and approved.
 
-## [3.3] - Extended time when requesting generation
+## [3.3] - Option on T2I to generate image or layer
+
+### Added
+
+- T2I can be generated in a frame inside the current image or in a
+  new image
 
 ### Changed
 

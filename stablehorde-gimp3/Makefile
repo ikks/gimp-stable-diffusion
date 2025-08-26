@@ -8,7 +8,7 @@ EXEC=gimp-stable-diffusion
 LANG=es
 INSTALL_DIR=~/.config/GIMP/3.0/plug-ins
 PO_FILES := $(wildcard po/[a-z][a-z].po)
-PO_FULL_FILES := $(wildcard po/full.*.po)
+PO_FULL_FILES := $(subst po/,po/full.,$(PO_FILES))
 MO_FILES := $(subst .po,/LC_MESSAGES/$(EXEC).mo, $(subst po/,locale/,$(PO_FILES)))
 
 all: $(EXEC).zip
@@ -18,7 +18,7 @@ locale/%/LC_MESSAGES/$(EXEC).mo: po/full.%.po
 	msgfmt --output-file=$@ $<
 
 po/full.%.po: po/%.po modules/aihordeclient/po/%.po
-	msgcat -o $@ $<
+	msgcat -o $@ $^
 
 po/$(LANG).po: po/$(EXEC).pot
 	msgmerge -q --update $@ $<
@@ -33,7 +33,7 @@ $(EXEC).zip: $(EXEC).py $(MO_FILES)
 	zip -r $(EXEC).zip $(EXEC)
 
 clean:
-	rm -rf  $(MO_FILES) po/*~ po/*bak $(EXEC).zip
+	rm -rf  $(MO_FILES) po/*~ po/*bak $(EXEC).zip po/full.*
 
 initlang:
 	msginit --input=po/gimp-stable-diffusion.pot --locale=$(LANG) --output=po/$(LANG).po
@@ -49,9 +49,8 @@ install: $(MO_FILES)
 publish: $(EXEC).zip
 	scripts/publish
 
-update_translations:
-	make po/$(EXEC).pot
-	for file in $(MO_FILES); do make $$file; done 
+langs: po/$(EXEC).pot $(PO_FULL_FILES) $(MO_FILES)
+	postats po/*.po
 
 .PHONY: clean initlang install publish update_translation
 
